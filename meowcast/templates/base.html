@@ -1,0 +1,25 @@
+<!doctype html>
+<title>{{ title.lower() }} | ^.^____/</title>
+
+{% if meowcast %}
+{{ meowcast.meowcast | safe }}
+{{ meowcast.futuremeow | safe }}
+{% endif %}
+
+{% if form %}
+{% block content %}
+
+    <section>                                                                                                                                             
+        <h2>the weather, right meow</h2>                                                                                                           
+            <form action="", method="post"> 
+                <p>
+                    {{ form.location.label }} <br>
+                    {{ form.location(size=32) }}
+                </p>
+                <p>{{ form.submit() }}</p>
+            </form>                                                                                                                                    
+    </section>    
+
+
+{% endblock %}
+{% endif %}
