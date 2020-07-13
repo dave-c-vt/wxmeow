@@ -2,14 +2,14 @@ from meowcast import app
 from flask import render_template, redirect
 
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
     from .forms import wxlookup
 
     form = wxlookup()
 
     if form.validate_on_submit():
-        return redirect('/wx/<location>')
+        return redirect(f'/wx/{location}')
 
     return render_template(
         'base.html',
@@ -18,10 +18,10 @@ def index():
     )
 
 
-@app.route('/wx/<zipcode>')
-def weather(zipcode):
+@app.route('/wx/<location>')
+def weather(location):
     from .wx2json_noaa import meowcast
-    meow = meowcast(zipcode)
+    meow = meowcast(location)
 
     return render_template(
         'base.html',
