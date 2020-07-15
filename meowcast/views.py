@@ -1,5 +1,11 @@
+try:
+    from meowcast import logger
+except ImportError:
+    print("didn't import logger")
+    pass
+
 from meowcast import app
-from flask import render_template, redirect
+from flask import render_template, redirect, url_for
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -9,7 +15,8 @@ def index():
     form = wxlookup()
 
     if form.validate_on_submit():
-        return redirect(url_for('wx', location=form.location))
+        logger.debug('form redirected!')
+        return redirect(url_for('weather', location=form.location.data))
 
     return render_template(
         'base.html',
@@ -21,7 +28,13 @@ def index():
 @app.route('/wx/<location>')
 def weather(location):
     from .wx2json_noaa import meowcast
-    meow = meowcast(location)
+
+    if location != "":
+        meow = meowcast(location)
+    else:
+        return redirect(url_for('index'))
+
+    logger.debug(f'weather for {location} ... ')
 
     return render_template(
         'base.html',

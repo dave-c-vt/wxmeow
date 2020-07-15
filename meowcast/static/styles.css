@@ -1,12 +1,16 @@
-@media (prefers-color-scheme: dark) {
+/*@media (prefers-color-scheme: dark) {
     body {
     background-color: black;
     color: white;
     }
-    }
+    }*/
 
 h1, h2, h3, body {
     font-family: sans-serif;
+}
+
+a {
+    text-decoration: none;
 }
 
 a:hover, a:visited, a:link, a:active {
@@ -38,6 +42,18 @@ a:-webkit-any-link {
 }
 
 .but:focus, .but:hover {
+    border: 1px solid black;
+}
+
+button, submit {
+    height: 45px;
+    width: 150px;
+    background-color: white;
+    border: 1px solid lightgray;
+    border-radius: 4px;
+}
+
+button:focus, button:hover, submit:focus, submit:hover {
     border: 1px solid black;
 }
 

@@ -1,6 +1,6 @@
 <!doctype html>
 <title>{{ title.lower() }} | ^.^____/</title>
-<link href='static/styles.css' rel='stylesheet'>
+<link href={{ url_for('static', filename='styles.css') }} rel='stylesheet'>
 
 {% if meowcast %}
 {{ meowcast.meowcast | safe }}
@@ -11,9 +11,11 @@
 {% block content %}
 
     <section>                                                                                                                                             
+        <h1>^.^___/</h1>
         <h2>the weather, right meow</h2>                                                                                                           
             <form action="", method="post"> 
                 <p>
+                    {{ form.csrf_token }}
                     {{ form.location(placeholder='enter zip', size=32) }}
                 </p>
                 <p>{{ form.submit() }}</p>
@@ -23,3 +25,6 @@
 
 {% endblock %}
 {% endif %}
+
+<br><br>
+<a href={{ url_for('index') }}>^.^__/</a>
