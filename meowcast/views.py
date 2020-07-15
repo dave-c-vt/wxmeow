@@ -9,7 +9,7 @@ def index():
     form = wxlookup()
 
     if form.validate_on_submit():
-        return redirect(f'/wx/{location}')
+        return redirect(url_for('wx', location=form.location))
 
     return render_template(
         'base.html',
