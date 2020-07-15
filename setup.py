@@ -1,8 +1,8 @@
 from setuptools import setup
 
 setup(
-    name='meowcast',
-    packages=['meowcast'],
+    name='wxmeow',
+    packages=['wxmeow'],
     version='0.1.0',
     include_package_data=True,
     install_requires=[

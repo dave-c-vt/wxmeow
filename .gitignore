@@ -1,0 +1,15 @@
+*__pycache__/
+venv/
+build/
+dist/
+temp/
+*egg-info/
+
+*.db
+*.ipynb
+*.pkl
+*.pyc
+*.swo
+*.swp
+
+!.gitignore
