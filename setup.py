@@ -8,6 +8,7 @@ setup(
     install_requires=[
         'flask',
         'flask_wtf',
+        'python-dotenv',
         'requests',
         'wtforms',
     ],
