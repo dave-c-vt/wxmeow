@@ -1,6 +1,8 @@
 <!doctype html>
 <title>{{ title.lower() }} | ^.^____/</title>
 <link href={{ url_for('static', filename='styles.css') }} rel='stylesheet'>
+<div width="auto" align="center">
+<h2><a href={{ url_for('index') }}>^.^___/</a></h2>
 
 {% if wxmeow %}
 {{ wxmeow.wxmeow | safe }}
@@ -11,14 +13,13 @@
 {% block content %}
 
     <section>                                                                                                                                             
-        <h1>^.^___/</h1>
         <h2>the weather, right meow</h2>                                                                                                           
             <form action="", method="post"> 
                 <p>
                     {{ form.csrf_token }}
                     {{ form.location(placeholder='enter zip', size=32) }}
                 </p>
-                <p>{{ form.submit() }}</p>
+                <p>{{ form.submit(class="but") }}</p>
             </form>                                                                                                                                    
     </section>    
 
@@ -27,4 +28,5 @@
 {% endif %}
 
 <br><br>
-<a href={{ url_for('index') }}>^.^__/</a>
+<h2><a href={{ url_for('index') }}>^.^___/</a></h2>
+</div>

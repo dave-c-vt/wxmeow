@@ -52,7 +52,7 @@ class wxmeow(object):
 
         wxmeow   = "<h1>"+self.meowplace+"<br> <small>is</small> "+self.meowobs+" <small>and</small> "\
                     +self.meowtemp+" F </br></br>Dew point <small>is</small> "+str(self.meowdp)+\
-                    " F</br>Pressure <small>is</small> "+self.meowbptrend+" <small>at</small> "+self.meowbp+" inches</h1>"
+                    " F </br>Pressure <small>is</small> "+self.meowbptrend+" <small>at</small> "+self.meowbp+" inches</h1>"
         self.wxmeow   = wxmeow.lower()
 
         futureth   = tr[0]+\
@@ -186,39 +186,39 @@ class wxmeow(object):
 <script>
            $(document).ready(function(){
                 $("#0").click(function(){
-                    $(".tr0").show("fast");
-                    $(".tr1").hide("fast");
-                    $(".tr2").hide("fast");
-                    $(".tr3").hide("fast");
-                    $(".tr4").hide("fast");
+                    $(".tr0").show(0);
+                    $(".tr1").hide(0);
+                    $(".tr2").hide(0);
+                    $(".tr3").hide(0);
+                    $(".tr4").hide(0);
                 });
                 $("#1").click(function(){
-                    $(".tr0").hide("fast");
-                    $(".tr1").show("fast");
-                    $(".tr2").hide("fast");
-                    $(".tr3").hide("fast");
-                    $(".tr4").hide("fast");
+                    $(".tr0").hide(0);
+                    $(".tr1").show(0);
+                    $(".tr2").hide(0);
+                    $(".tr3").hide(0);
+                    $(".tr4").hide(0);
                 });
                 $("#2").click(function(){
-                    $(".tr0").hide("fast");
-                    $(".tr1").hide("fast");
-                    $(".tr2").show("fast");
-                    $(".tr3").hide("fast");
-                    $(".tr4").hide("fast");
+                    $(".tr0").hide(0);
+                    $(".tr1").hide(0);
+                    $(".tr2").show(0);
+                    $(".tr3").hide(0);
+                    $(".tr4").hide(0);
                 });
                 $("#3").click(function(){
-                    $(".tr0").hide("fast");
-                    $(".tr1").hide("fast");
-                    $(".tr2").hide("fast");
-                    $(".tr3").show("fast");
-                    $(".tr4").hide("fast");
+                    $(".tr0").hide(0);
+                    $(".tr1").hide(0);
+                    $(".tr2").hide(0);
+                    $(".tr3").show(0);
+                    $(".tr4").hide(0);
                 });
                 $("#4").click(function(){
-                    $(".tr0").hide("fast");
-                    $(".tr1").hide("fast");
-                    $(".tr2").hide("fast");
-                    $(".tr3").hide("fast");
-                    $(".tr4").show("fast");
+                    $(".tr0").hide(0);
+                    $(".tr1").hide(0);
+                    $(".tr2").hide(0);
+                    $(".tr3").hide(0);
+                    $(".tr4").show(0);
                 });
             });
 </script>
