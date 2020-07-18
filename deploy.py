@@ -1,4 +1,4 @@
-from os.path import dirname, join, realpath
+from os.path import dirname, exists,  join, realpath
 import subprocess
 import sys
 from time import sleep
@@ -19,11 +19,11 @@ print(venv_activate)
 
 if __name__ == "__main__":
     """creates a virtual environment for and initializes database file"""
-    import venv
+    if not exists(venv_python):
+        import venv
 
-    venv.create(venv_name, with_pip=True)
+        venv.create(venv_name, with_pip=True)
 
-    subprocess.check_call([venv_python, "-m", "pip", "install", "-e", "."])
+        subprocess.check_call([venv_python, "-m", "pip", "install", "-e", "."])
+
     subprocess.check_call([venv_python, "-m", "flask", "run"])
-#    subprocess.check_call([venv_activate])
-#    subprocess.check_call(["flask", "run"])
