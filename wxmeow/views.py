@@ -28,9 +28,13 @@ def index():
 @app.route('/wx/<location>')
 def weather(location):
     from .wx2json_noaa import wxmeow
+    from .pics import pick_pic
+
+    pick_pic()
 
     if location != "":
         meow = wxmeow(location)
+        pic = pick_pic()
     else:
         return redirect(url_for('index'))
 
@@ -40,6 +44,7 @@ def weather(location):
         'base.html',
         title=meow.meowplace,
         wxmeow=meow,
+        pic=pic,
     )
 
 

@@ -28,6 +28,12 @@
 {% endblock %}
 {% endif %}
 
+{% if pic %}
+
+<img href="{{ url_for('static', filename='catpics/{}'.format(pic)) }}">
+
+{% endif %}
+
 <br><br>
 <h2><a href={{ url_for('index') }}>\___^.^</a></h2>
 </div>
