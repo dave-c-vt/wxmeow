@@ -1,3 +1,9 @@
+try:
+    from wxmeow import logger
+except ImportError:
+    print("didn't import logger")
+    pass
+
 import csv
 from flask import Flask, url_for
 import os
@@ -95,7 +101,7 @@ class noaa(object):
                     long = row[2].strip()
             #print("zip = {0}, lat = {1}, long = {2}".format(self.location, lat, long))
         except:
-            print("unable to find forecast for {0}".format(self.location))
+            logger.info("unable to find forecast for {0}".format(self.location))
 
         self.station_reserve = str(requests.get(self.baseurl+lat+","+long+"/stations").json()['features'][1]['id'])
         self.station_reserve2 = str(requests.get(self.baseurl+lat+","+long+"/stations").json()['features'][2]['id'])
@@ -127,7 +133,7 @@ class noaa(object):
             self.state = self.place['state']
 
         except:
-            print("couldn't get place")
+            logger.error("couldn't get place")
             self.location = "unknown"
             self.city = "wherever"
             self.state = "who cares"

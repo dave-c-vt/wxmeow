@@ -6,12 +6,13 @@
 <h2><a href={{ url_for('index') }}>^.^___/</a></h2>
 
 {% if wxmeow %}
-{{ wxmeow.wxmeow | safe }}
-{{ wxmeow.futuremeow | safe }}
+    {{ wxmeow.wxmeow | safe }}
+    {{ wxmeow.futuremeow | safe }}
 {% endif %}
 
-{% if form %}
 {% block content %}
+
+{% if form %}
 
     <section>                                                                                                                                             
         <h2>the weather, right meow</h2>                                                                                                           
@@ -25,14 +26,15 @@
     </section>    
 
 
-{% endblock %}
 {% endif %}
 
 {% if pic %}
 
-<img href="{{ url_for('static', filename='catpics/{}'.format(pic)) }}">
+    <img href="{{ url_for('static', filename='catpics/{}'.format(pic)) }}"/>
 
 {% endif %}
+
+{% endblock %}
 
 <br><br>
 <h2><a href={{ url_for('index') }}>\___^.^</a></h2>

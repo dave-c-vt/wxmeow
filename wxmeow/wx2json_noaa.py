@@ -1,3 +1,9 @@
+try:
+    from wxmeow import logger
+except ImportError:
+    print("didn't import logger")
+    pass
+
 import sys
 from .weather_query3 import noaa
 from .pickler import save_meow, load_meow
@@ -89,9 +95,9 @@ class wxmeow(object):
         futuremeow = self.js+table[0]+futureth+futurepics+futuretemp+futuretext+table[1]
         self.futuremeow = futuremeow.lower()
 
-        print(wxmeow)
-        print(futuremeow)
-        print("<br><br>")
+        logger.debug(wxmeow)
+        logger.debug(futuremeow)
+        logger.debug("<br><br>")
 
         save_meow(self.meow)
 
