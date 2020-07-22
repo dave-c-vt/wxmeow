@@ -30,7 +30,8 @@
 
 {% if pic %}
 
-    <img href="{{ url_for('static', filename='catpics/{}'.format(pic)) }}"/>
+<br><br>
+<img src="{{ url_for('static', filename='catpics/{}'.format(pic)) }}"/>
 
 {% endif %}
 
