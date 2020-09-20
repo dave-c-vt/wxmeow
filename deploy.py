@@ -26,4 +26,4 @@ if __name__ == "__main__":
 
         subprocess.check_call([venv_python, "-m", "pip", "install", "-e", "."])
 
-    subprocess.check_call([venv_python, "-m", "flask", "run"])
+    subprocess.check_call([venv_python, "-m", "flask", "run", "-h", "0.0.0.0"])

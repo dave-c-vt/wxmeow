@@ -28,16 +28,27 @@ def iszipcode(string):
         return False
 
 def islatlong(string):
-    arglist = string.replace(",", " ").split(" ")
-    latlong = []
+    arglist = string\
+            .replace(",", " ")\
+            .replace(";", " ")\
+            .split(" ")
+
+    latlon = []
 
     for inc in arglist:
         if inc == "":
             pass
         else:
-            latlong.append(inc)
+            latlon.append(inc)
 
-    return latlong
+    try:
+        float(latlon[0])
+        float(latlon[1])
+
+        return latlon
+
+    except:
+        return False
 
 
 class geo(object):
@@ -51,7 +62,7 @@ class geo(object):
         if int(self.location) == True:
             address = (self.location)
             len(str(address)) < 6
-        #  is it a friggin decimal lat/long?
+        #  is it a friggin decimal lat/lon?
         elif re.match('^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$', self.location):
             address = self.location.replace(' ', '+')
 
@@ -65,10 +76,10 @@ class noaa(object):
             "observationStations"
         then use https://api.weather.gov/stations/{stationid}/observations
         e.g. https://api.weather.gov/stations/KMVL/observations
-         full list of us zips from 2013 and lat/long here:
+         full list of us zips from 2013 and lat/lon here:
     https://gist.githubusercontent.com/erichurst/7882666/raw/5bdc46db47d9515269ab12ed6fb2850377fd869e/US%2520Zip%2520Codes%2520from%25202013%2520Government%2520Data
 
-    for forecast, data must be in dec lat long
+    for forecast, data must be in dec lat lon
     eg: https://api.weather.gov/points/44.2774,-72.5799/forecast/hourly
     focast = requests.get("")
     focast.json()['properties']['periods'][0]['temperature']
@@ -80,7 +91,16 @@ class noaa(object):
     import json
 
     def __init__(self, location):
+        
         self.location = str(location)
+        latlon = islatlong(self.location)
+
+        if latlon:
+            self.lat = latlon[0]
+            self.lon = latlon[1]
+        else:
+            self.lat = False
+
         self.baseurl = "https://api.weather.gov/points/"
         self.zipfile = url_for('static', filename='zips.txt')
 
@@ -94,23 +114,25 @@ class noaa(object):
 
         csv_file = csv.reader(open(self.zipfile, "rt"), delimiter=",")
 
-        try:
-            for row in csv_file:
-                if self.location == row[0]:
-                    lat = row[1].strip()
-                    long = row[2].strip()
-            #print("zip = {0}, lat = {1}, long = {2}".format(self.location, lat, long))
-        except:
-            logger.info("unable to find forecast for {0}".format(self.location))
+        if not self.lat:
 
-        self.station_reserve = str(requests.get(self.baseurl+lat+","+long+"/stations").json()['features'][1]['id'])
-        self.station_reserve2 = str(requests.get(self.baseurl+lat+","+long+"/stations").json()['features'][2]['id'])
-        self.station = str(requests.get(self.baseurl+lat+","+long+"/stations").json()['features'][0]['id'])
+            try:
+                for row in csv_file:
+                    if self.location == row[0]:
+                        self.lat = row[1].strip()
+                        self.lon = row[2].strip()
+
+            except:
+                logger.info("unable to find forecast for {0}".format(self.location))
+
+        self.station_reserve = str(requests.get(self.baseurl+self.lat+","+self.lon+"/stations").json()['features'][1]['id'])
+        self.station_reserve2 = str(requests.get(self.baseurl+self.lat+","+self.lon+"/stations").json()['features'][2]['id'])
+        self.station = str(requests.get(self.baseurl+self.lat+","+self.lon+"/stations").json()['features'][0]['id'])
         self.conditions = requests.get(self.station + "/observations")
         self.conditions_reserve = requests.get(self.station_reserve + "/observations")
         self.conditions_reserve2 = requests.get(self.station_reserve2 + "/observations")
-        self.hourly_forecast = requests.get(self.baseurl+lat+","+long+"/forecast/hourly") # hourly forecast...
-        self.forecast = requests.get(self.baseurl+lat+","+long+"/forecast/")
+        self.hourly_forecast = requests.get(self.baseurl+self.lat+","+self.lon+"/forecast/hourly") # hourly forecast...
+        self.forecast = requests.get(self.baseurl+self.lat+","+self.lon+"/forecast/")
 
         try:
             self.jconditions = json.loads(self.conditions.text)
@@ -128,7 +150,7 @@ class noaa(object):
             self.jhourly = None
 
         try:
-            self.place = requests.get("https://api.weather.gov/points/"+lat+","+long).json()['properties']['relativeLocation']['properties']
+            self.place = requests.get("https://api.weather.gov/points/"+self.lat+","+self.lon).json()['properties']['relativeLocation']['properties']
             self.city = self.place['city']
             self.state = self.place['state']
 
@@ -162,7 +184,7 @@ class openweathermap(object):
     def locationtype(self):
         # is it a zip code?
 
-        # is it lat/long?
+        # is it lat/lon?
 
         # is it city/state/country?
 
