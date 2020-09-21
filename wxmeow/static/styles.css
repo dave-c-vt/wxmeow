@@ -77,6 +77,10 @@ table {
     }
 }
 
-.tr0, .tr1, .tr2, .tr3, .tr4 {
+.tr0 {
+	display: content;
+}
+
+.tr1, .tr2, .tr3, .tr4 {
 	display: none;
 }

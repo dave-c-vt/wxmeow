@@ -31,7 +31,7 @@
 {% if pic %}
 
 <br><br>
-<img src="{{ url_for('static', filename='catpics/{}'.format(pic)) }}"/>
+<img style="width=:575px; max-width: 100%;" src="{{ url_for('static', filename='catpics/{}'.format(pic)) }}"/>
 
 {% endif %}
 
