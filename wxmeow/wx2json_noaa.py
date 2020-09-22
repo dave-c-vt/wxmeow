@@ -5,7 +5,7 @@ except ImportError:
     pass
 
 import sys
-from .weather_query3 import noaa
+from .weather_query import noaa
 from .pickler import save_meow, load_meow
 
 
