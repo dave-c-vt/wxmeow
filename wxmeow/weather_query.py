@@ -175,7 +175,7 @@ class openweathermap(object):
     """
 
     baseurl = 'http://api.openweathermap.org/data/2.5/'
-    key = '71ed240536f23211e1b5329e940617f8'
+    key = ''
 
     def __init__(self, location):
 
