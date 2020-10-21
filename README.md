@@ -14,7 +14,7 @@ the first time the ```deploy.py``` script is run, it creates a virtual environme
 necessary packages for this Flask application, and then launches the app.
 
 
-the next time the ```deploy.py``` script is run, it lauches the app.
+the next time the ```deploy.py``` script is run, it launches the app.
 
 
 you can view it at http://localhost:5000.
