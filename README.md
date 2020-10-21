@@ -10,6 +10,11 @@
 
 ## what it does
 
-the ```deploy.py``` script creates a virtual environment (if it hasn't already), 
-and installs all the necessary packages for this Flask application. it then 
-launches the app, and you can view it at http://localhost:5000.
+the first time the ```deploy.py``` script is run, it creates a virtual environment and installs all the 
+necessary packages for this Flask application, and then launches the app.
+
+
+the next time the ```deploy.py``` script is run, it lauches the app.
+
+
+you can view it at http://localhost:5000.
