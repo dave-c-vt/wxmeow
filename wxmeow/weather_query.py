@@ -53,7 +53,7 @@ def islatlong(string):
 
 class geo(object):
     url = 'https://maps.googleapis.com/maps/api/geocode/json?address='
-    key = '&key=AIzaSyAxXM09e4--F_lBsHw7QK7KqxtvoEhcLrE'
+    key = ''
 
     def __init__(self, location):
 
@@ -91,7 +91,7 @@ class noaa(object):
     import json
 
     def __init__(self, location):
-        
+
         self.location = str(location)
         latlon = islatlong(self.location)
 
