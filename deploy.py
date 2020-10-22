@@ -1,3 +1,5 @@
+import webbrowser
+from threading import Timer
 from os.path import dirname, exists,  join, realpath
 import subprocess
 import sys
@@ -17,6 +19,11 @@ else:
 print(venv_python)
 print(venv_activate)
 
+
+def open_browser():
+      webbrowser.open_new('http://127.0.0.1:5000/')
+
+
 if __name__ == "__main__":
     """creates a virtual environment for and initializes database file"""
     if not exists(venv_python):
@@ -26,4 +33,5 @@ if __name__ == "__main__":
 
         subprocess.check_call([venv_python, "-m", "pip", "install", "-e", "."])
 
+    Timer(1, open_browser).start();
     subprocess.check_call([venv_python, "-m", "flask", "run", "-h", "0.0.0.0"])
