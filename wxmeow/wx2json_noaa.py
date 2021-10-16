@@ -14,6 +14,8 @@ class wxmeow(object):
     def __init__(self, location):
         self.location = location
 
+        logger.debug(f"location: {location}")
+
         try:
             self.meow, self.age = load_meow(self.location)
             if self.age > 10:
@@ -29,6 +31,7 @@ class wxmeow(object):
         self.meowbp      = str(int(self.pa2inches(self.meow.jconditions['features'][0]['properties']['seaLevelPressure'])))
         self.meowbptrend = self.check_pressure_trend(self.meow.jconditions['features'])
 
+        logger.debug(f"meowplace: {self.meowplace}")
 
         i = 0
         self.meowfc = [] # forecast icon (sunny, cloudy, etc.)
@@ -36,6 +39,8 @@ class wxmeow(object):
         self.meowlt = [] # forecast low temp
         self.dayname = [] # forecast element label
         self.detail = [] # detailed forecast
+
+        logger.debug(f"forecast = {self.meow.jforecast}")
 
         while i < 5:
             self.dayname.append(self.meow.jforecast['properties']['periods'][i]['name'].lower())

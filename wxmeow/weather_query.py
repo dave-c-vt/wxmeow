@@ -6,11 +6,12 @@ except ImportError:
 
 import csv
 from flask import Flask, url_for
-import os
-import requests
-import urllib3
 import json
+import os
 import re
+import requests
+import traceback
+import urllib3
 
 
 # functions for validating user input --------------
@@ -102,6 +103,7 @@ class noaa(object):
             self.lat = False
 
         self.baseurl = "https://api.weather.gov/points/"
+        self.stationurl = "https://api.weather.gov/stations/"
         self.zipfile = url_for('static', filename='zips.txt')
 
         try:
@@ -128,20 +130,31 @@ class noaa(object):
         self.station_reserve = str(requests.get(self.baseurl+self.lat+","+self.lon+"/stations").json()['features'][1]['id'])
         self.station_reserve2 = str(requests.get(self.baseurl+self.lat+","+self.lon+"/stations").json()['features'][2]['id'])
         self.station = str(requests.get(self.baseurl+self.lat+","+self.lon+"/stations").json()['features'][0]['id'])
+        logger.debug(f"station: {self.station}")
+        self.station_name = self.station.split('/')[-1]
         self.conditions = requests.get(self.station + "/observations")
         self.conditions_reserve = requests.get(self.station_reserve + "/observations")
         self.conditions_reserve2 = requests.get(self.station_reserve2 + "/observations")
         self.hourly_forecast = requests.get(self.baseurl+self.lat+","+self.lon+"/forecast/hourly") # hourly forecast...
-        self.forecast = requests.get(self.baseurl+self.lat+","+self.lon+"/forecast/")
 
+        logger.debug(f" station_reserve = {self.station_reserve}")
+        logger.debug(f" station_reserve2 = {self.station_reserve2}")
+        self.points = requests.get(f"https://api.weather.gov/points/{self.lat},{self.lon}")
+        logger.debug(f"points: {self.points.text}")
+        self.forecasturl = json.loads(self.points.text)['properties']['forecast']
+        logger.debug(f"forecast url: {self.forecasturl}")
+        self.forecast = requests.get(self.forecasturl)
+        logger.debug(f"forecast: {self.forecast}")
         try:
             self.jconditions = json.loads(self.conditions.text)
         except:
             self.jconditions = None
         try:
             self.jforecast = json.loads(self.forecast.text)
+            logger.debug(f"jforecast: {self.jforecast.text}")
         except:
-            self.jforecast = None
+            logger.debug(f" couldn't get forecast from text")
+            logger.debug(traceback.format_exc())
 
         try:
             self.jhourly = json.loads(self.hourly_forecast.text)
