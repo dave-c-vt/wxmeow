@@ -4,9 +4,11 @@
 
 ## install
 
-    git clone https://github.com/dave-c-vt/wxmeow
-    cd wxmeow/
-    python3 deploy.py
+``` bash
+git clone https://github.com/dave-c-vt/wxmeow
+cd wxmeow/
+python3 deploy.py
+```
 
 ## what it does
 
@@ -18,3 +20,12 @@ the next time the ```deploy.py``` script is run, it launches the app.
 
 
 you can view it at http://localhost:5000.
+
+## or do it docker
+
+``` bash
+docker build -t wxmeow:latest .
+docker run --name wxdocker -d -p 8000:5000 --rm wxmeow:latest
+```
+
+and access at http://localhost:8000
