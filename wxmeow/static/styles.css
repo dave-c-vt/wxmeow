@@ -71,7 +71,7 @@ table {
     float: center;
 }
 
-@media only screen and (max-width: 900px) {
+@media only screen and (max-width: 700px) {
     .one{
         display: none;
     }
@@ -83,4 +83,9 @@ table {
 
 .tr1, .tr2, .tr3, .tr4 {
 	display: none;
+}
+
+.total {
+    max-width: 960px;
+    margin: auto;
 }
