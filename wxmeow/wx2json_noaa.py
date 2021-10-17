@@ -14,7 +14,7 @@ class wxmeow(object):
     def __init__(self, location):
         self.location = location
 
-        logger.debug(f"location: {location}")
+        logger.info(f"location: {location}")
 
         try:
             self.meow, self.age = load_meow(self.location)
@@ -23,7 +23,6 @@ class wxmeow(object):
         except:
             self.reload()
 
-
         self.meowplace   = ", ".join([self.meow.city, self.meow.state])
         self.meowobs     = self.meow.jconditions['features'][0]['properties']['textDescription']
         self.meowtemp    = str(int(round(self.cel2fahr(self.meow.jconditions['features'][0]['properties']['temperature']))))
@@ -31,7 +30,7 @@ class wxmeow(object):
         self.meowbp      = str(int(self.pa2inches(self.meow.jconditions['features'][0]['properties']['seaLevelPressure'])))
         self.meowbptrend = self.check_pressure_trend(self.meow.jconditions['features'])
 
-        logger.debug(f"meowplace: {self.meowplace}")
+        logger.info(f"place: {self.meowplace}")
 
         i = 0
         self.meowfc = [] # forecast icon (sunny, cloudy, etc.)
@@ -40,7 +39,7 @@ class wxmeow(object):
         self.dayname = [] # forecast element label
         self.detail = [] # detailed forecast
 
-        logger.debug(f"forecast = {self.meow.jforecast}")
+        # logger.debug(f"forecast = {self.meow.jforecast}")
 
         while i < 5:
             self.dayname.append(self.meow.jforecast['properties']['periods'][i]['name'].lower())
@@ -100,9 +99,9 @@ class wxmeow(object):
         futuremeow = self.js+table[0]+futureth+futurepics+futuretemp+futuretext+table[1]
         self.futuremeow = futuremeow.lower()
 
-        logger.debug(wxmeow)
-        logger.debug(futuremeow)
-        logger.debug("<br><br>")
+        # logger.debug(wxmeow)
+        # logger.debug(futuremeow)
+        # logger.debug("<br><br>")
 
         save_meow(self.meow)
 
