@@ -6,6 +6,7 @@ except ImportError:
 
 from wxmeow import app
 from flask import render_template, redirect, url_for
+import traceback
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -33,8 +34,19 @@ def weather(location):
     pick_pic()
 
     if location != "":
-        meow = wxmeow(location)
-        pic = pick_pic()
+        try:
+            meow = wxmeow(location)
+            # self.meowobs need lookup to convert "clear" to "sun", etc.^
+            try:
+                pic = pick_pic(weather=meow.meowobs)
+            except:
+                logger.error(f"couldn't get pick for weather: \"{meow.meowobs}\"")
+                logger.debug(traceback.format_exc())
+                print(f"couldn't get pick for weather: \"{meow.meowobs}\"")
+                pic = pick_pic()
+        except:
+            meow = f"<h2>OH NO!</h2><p>{location} didn't work! is it a place?</p>"
+
     else:
         return redirect(url_for('index'))
 
