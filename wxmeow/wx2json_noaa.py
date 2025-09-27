@@ -20,7 +20,7 @@ from wxmeow.weather_query import (
     DataParsingError,
     WeatherDataError,
 )
-from wxmeow.pickler import save_meow
+from wxmeow.pickler import save_meow, load_meow, CacheReadError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -62,7 +62,21 @@ class wxmeow:
         self.detail = []
 
         try:
-            self.meow = noaa(location)
+            # Try to load from cache first
+            try:
+                self.meow, self.age = load_meow(self.location)
+                if self.age is None or self.meow is None or self.age > 10:
+                    logger.info(
+                        f"Cache miss or expired for {location}, fetching new data"
+                    )
+                    self.reload()
+                else:
+                    logger.info(
+                        f"Using cached data for {location} (age: {self.age:.1f} minutes)"
+                    )
+            except CacheReadError as e:
+                logger.warning(f"Error loading cached data: {str(e)}")
+                self.reload()
         except (LocationError, ApiError, DataParsingError, WeatherDataError) as e:
             logger.error(f"No valid weather data available for {location}: {str(e)}")
             # Set a default error message
@@ -256,35 +270,17 @@ class wxmeow:
                     # Use placeholder for empty images
                     weather_emoji = "⚡"
 
-                onclick_handler = (
-                    "$('.day-selector').removeClass('selected-day');"
-                    + "$(this).addClass('selected-day');"
-                    + "$('.tr"
-                    + str(i)
-                    + "').show();"
-                    + "$('.tr0,.tr1,.tr2,.tr3,.tr4').not('.tr"
-                    + str(i)
-                    + "').hide();"
-                    + "$('.day-description').hide();"
-                    + "$('#day-description-"
-                    + str(i)
-                    + "').show();"
-                    + "lastSelectedDay="
-                    + str(i)
-                    + ";"
-                    + "$(document).trigger('daySelected', ["
-                    + str(i)
-                    + "]);"
-                )
+                # Simplified click handler
+                onclick_handler = f"selectDay({i}); return false;"
+
                 futurepics += (
                     td_style
-                    + "<span id='"
-                    + str(i)
-                    + "' class='day-selector weather-icon' "
+                    + f"<span id='{i}' class='day-selector weather-icon' "
                     + "style='cursor:pointer; display:block; padding: 15px; text-align:center; font-size:48px; border-radius:4px;' "
-                    + 'onclick="'
-                    + onclick_handler
-                    + '">'
+                    + f'onclick="{onclick_handler}" '
+                    + f'role="button" '
+                    + f'aria-label="Select day {i + 1} forecast" '
+                    + 'tabindex="0">'
                     + weather_emoji
                     + "</span>"
                     + td[1]
@@ -369,7 +365,14 @@ class wxmeow:
         # logger.debug(futuremeow)
         # logger.debug("<br><br>")
 
-        save_meow(self.meow)
+        try:
+            save_meow(self.meow)
+            logger.debug(f"Successfully cached weather data for {self.location}")
+        except Exception as e:
+            logger.warning(
+                f"Failed to cache weather data for {self.location}: {str(e)}"
+            )
+            # Continue execution even if caching fails
 
     def reload(self) -> None:
         """
@@ -381,7 +384,14 @@ class wxmeow:
         while retry_count <= max_retries:
             try:
                 self.meow = noaa(self.location)
-                # If we get here, we succeeded
+                # If we get here, we succeeded - process the data
+                self._process_hourly_data()
+                # Save the fresh data to cache
+                try:
+                    save_meow(self.meow)
+                    logger.debug(f"Cached fresh weather data for {self.location}")
+                except Exception as cache_e:
+                    logger.warning(f"Failed to cache fresh data: {str(cache_e)}")
                 return
             except LocationError as e:
                 logger.error(
@@ -607,6 +617,54 @@ class wxmeow:
 
         return emoji_map.get(condition, "🌈")
 
+    def _get_weather_condition_text(self, icon_url: str) -> str:
+        """
+        Convert a weather icon URL to descriptive text for screen readers.
+
+        Args:
+            icon_url: The URL of the weather icon
+
+        Returns:
+            A text description of the weather condition
+        """
+        try:
+            if not icon_url:
+                return "weather condition unknown"
+
+            url_lower = str(icon_url).lower()
+
+            # Night vs Day detection
+            is_night = "night" in url_lower or "n/" in url_lower
+            time_prefix = "nighttime" if is_night else "daytime"
+
+            # Check for specific condition patterns
+            if any(code in url_lower for code in ["skc", "few", "clear"]):
+                return f"{time_prefix} clear skies"
+            elif "sct" in url_lower:
+                return f"{time_prefix} partly cloudy"
+            elif any(code in url_lower for code in ["bkn", "ovc", "cloud"]):
+                return "cloudy conditions"
+            elif any(code in url_lower for code in ["rain", "shra"]):
+                return "rain expected"
+            elif any(code in url_lower for code in ["snow", "blizzard"]):
+                return "snow conditions"
+            elif any(code in url_lower for code in ["sleet", "fzra"]):
+                return "sleet or freezing rain"
+            elif any(code in url_lower for code in ["thunder", "tsra"]):
+                return "thunderstorms possible"
+            elif any(code in url_lower for code in ["fog", "mist"]):
+                return "foggy conditions"
+            elif "wind" in url_lower:
+                return "windy conditions"
+            elif "hot" in url_lower:
+                return "hot weather"
+            else:
+                return "mixed weather conditions"
+
+        except Exception as e:
+            logger.warning(f"Error processing weather condition text: {str(e)}")
+            return "weather condition unknown"
+
     def cel2fahr(self, val: Dict[str, Any]) -> float:
         """
         Convert Celsius to Fahrenheit if needed.
@@ -784,61 +842,46 @@ table {
            // Global variable to track the selected day
            var lastSelectedDay = 0;
 
+           // Global function for day selection
+           function selectDay(dayIndex) {
+               console.log("Selecting day:", dayIndex);
+
+               // Hide all chart containers first
+               $("[id^='hourly-temperature-chart-']").hide().css("display", "none");
+
+               // Hide all day details and charts
+               $(".day-detail, .chart-row").hide();
+               $(".day-selector").removeClass("selected-day");
+
+               // Show selected day's content
+               $(".tr" + dayIndex).show();
+               $("#" + dayIndex).addClass("selected-day");
+
+               // Show ONLY the selected chart and hide all others
+               for (let i = 0; i < 5; i++) {
+                   const chartElement = $("#hourly-temperature-chart-" + i);
+                   if (i === parseInt(dayIndex)) {
+                       chartElement.css({
+                           "display": "block",
+                           "width": "100%",
+                           "max-width": "800px",
+                           "margin": "20px auto",
+                           "min-height": "300px"
+                       }).show();
+                   } else {
+                       chartElement.hide().css("display", "none");
+                   }
+               }
+
+               // Update global state
+               lastSelectedDay = parseInt(dayIndex);
+
+               // Trigger chart update event
+               $(document).trigger('daySelected', [dayIndex]);
+           }
+
            $(document).ready(function(){
                 console.log("Weather forecast day selector initialization");
-
-                // Initialize day picker functionality
-                function selectDay(dayIndex) {
-                    console.log("Selecting day:", dayIndex);
-
-                    // Hide all chart containers first
-                    $("[id^='hourly-temperature-chart-']").hide().css("display", "none");
-
-                    // Hide all day details and charts
-                    $(".day-detail, .chart-row").hide();
-                    $(".day-selector").removeClass("selected-day");
-
-                    // Show selected day's content
-                    $(".tr" + dayIndex).show();
-                    $("#" + dayIndex).addClass("selected-day");
-
-                    // Hide all day descriptions
-                    $(".day-description").hide();
-                    // Show only the selected day's description
-                    $("#day-description-" + dayIndex).show();
-
-                    // Show ONLY the selected chart and hide all others
-                    for (let i = 0; i < 5; i++) {
-                        const chartElement = $("#hourly-temperature-chart-" + i);
-                        if (i === parseInt(dayIndex)) {
-                            chartElement.css({
-                                "display": "block",
-                                "width": "100%",
-                                "max-width": "800px",
-                                "margin": "20px auto",
-                                "min-height": "300px"
-                            }).show();
-                        } else {
-                            chartElement.hide().css("display", "none");
-                        }
-                    }
-
-                    // Update global state
-                    lastSelectedDay = parseInt(dayIndex);
-
-                    // Trigger chart update event
-                    $(document).trigger('daySelected', [dayIndex]);
-                }
-
-                // Set up click handlers for each day
-                for (let i = 0; i < 5; i++) {
-                    $("#" + i).off("click").on("click", function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        selectDay(i);
-                        return false;
-                    });
-                }
 
                 // Initially select day 0
                 selectDay(0);
@@ -848,17 +891,6 @@ table {
                     console.log("Initializing temperature charts...");
                     $(document).trigger('daySelected', [0]);
                 }, 500);
-
-                // Initialize temperature charts if the function exists
-                if (typeof initializeCharts === 'function') {
-                    initializeCharts();
-                } else if (typeof Chart !== 'undefined') {
-                    // Fallback: try to initialize charts after a short delay
-                    setTimeout(function() {
-                        console.log('Attempting to initialize charts...');
-                        $(document).trigger('daySelected', [0]);
-                    }, 1000);
-                }
             });
 </script>
         """

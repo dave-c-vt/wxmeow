@@ -1,7 +1,9 @@
 <!doctype html>
 <html lang="en" data-theme="{{ theme|default('light') }}">
 <head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Real-time weather information and forecasts with temperature charts">
 <title>{{ title.lower() }} | ^.^____/</title>
 <link href={{ url_for('static', filename='styles.css') }} rel='stylesheet'>
 <script src={{ url_for('static', filename='js/autocomplete.js') }}></script>
@@ -62,46 +64,57 @@
         font-weight: 500;
     }
 </style>
-<div class="theme-toggle-container">
-    <label class="theme-toggle">
-        <input type="checkbox" id="theme-toggle">
-        <span class="slider">
-            <span class="toggle-icons">
-                <span id="theme-icon-sun">☀️</span>
-                <span id="theme-icon-moon">🌙</span>
-            </span>
-        </span>
-    </label>
-</div>
 </head>
 <body data-location="{{ location|default('') }}">
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<div class="theme-toggle-container">
+    <label class="theme-toggle" for="theme-toggle">
+        <input type="checkbox" id="theme-toggle" aria-label="Toggle dark mode theme">
+        <span class="slider">
+            <span class="toggle-icons">
+                <span id="theme-icon-sun" aria-hidden="true">☀️</span>
+                <span id="theme-icon-moon" aria-hidden="true">🌙</span>
+            </span>
+        </span>
+        <span class="sr-only">Toggle between light and dark themes</span>
+    </label>
+</div>
 <div class="total"  align="center">
-<h2><a href={{ url_for('views.index') }}>^.^___/</a></h2>
+<header role="banner">
+<h1><a href={{ url_for('views.index') }} aria-label="wxmeow weather home">^.^___/</a></h1>
+</header>
 
+<main id="main-content" role="main">
 {% if wxmeow %}
-    {{ wxmeow.wxmeow | safe }}
+    <section aria-label="Current weather conditions">
+        {{ wxmeow.wxmeow | safe }}
+    </section>
 
     {% if pic %}
-    <br>
-    <img style="width=:575px; max-width: 100%;" src="{{ pic }}"/>
-    <br>
+    <section aria-label="Weather illustration">
+        <img style="width:575px; max-width: 100%;" src="{{ pic }}" alt="Weather illustration showing current conditions" loading="lazy"/>
+    </section>
     {% endif %}
 
-    {{ wxmeow.futuremeow | safe }}
+    <section aria-label="Weather forecast and temperature charts">
+        {{ wxmeow.futuremeow | safe }}
+    </section>
 {% endif %}
 
 {% block content %}
 
 {% if form %}
 
-    <section>
+    <section aria-label="Weather location search">
         <h2 style="padding-top: 40px; padding-bottom: 40px;">the weather, right meow</h2>
-            <form action="", method="post">
-                <p>
+            <form action="" method="post" role="search">
+                <div>
                     {{ form.csrf_token }}
-                    {{ form.location(placeholder='enter city, zip, or lat/lon', size=32, id='location') }}
-                </p>
-                <p>{{ form.submit(class="but") }}</p>
+                    <label for="location" class="sr-only">Enter location for weather forecast</label>
+                    {{ form.location(placeholder='Enter city, zip, or lat/lon coordinates', size=32, id='location') }}
+                    <div id="location-help" class="sr-only">Enter a city name, ZIP code, or latitude and longitude coordinates</div>
+                </div>
+                <div>{{ form.submit(class_='but') }}</div>
             </form>
     </section>
 
@@ -109,23 +122,29 @@
 {% endif %}
 
 {% if location_history and form %}
-    <section class="recent-locations">
+    <section class="recent-locations" aria-label="Recently viewed locations">
         <h3 class="locations-title">\___^.^</h3>
-        <div class="location-buttons">
-            {% for entry in location_history %}
-                <a href="{{ url_for('views.weather', location=entry.location) }}" class="location-button">
-                    <span class="location-emoji">{{ entry.emoji }}</span>
-                    <span class="location-name">{{ entry.display_name }}</span>
-                </a>
-            {% endfor %}
-        </div>
+        <nav aria-label="Recent weather locations">
+            <div class="location-buttons">
+                {% for entry in location_history %}
+                    <a href="{{ url_for('views.weather', location=entry.location) }}" class="location-button" aria-label="View weather for {{ entry.display_name }}">
+                        <span class="location-emoji" aria-hidden="true">{{ entry.emoji }}</span>
+                        <span class="location-name">{{ entry.display_name }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+        </nav>
     </section>
 {% endif %}
 
 {% endblock %}
+</main>
 
-<br><br>
-<h2><a href={{ url_for('views.index') }}>\___^.^</a></h2>
+<footer role="contentinfo" style="margin-top: 40px; padding: 20px 0;">
+    <nav aria-label="Footer navigation">
+        <a href={{ url_for('views.index') }} aria-label="Return to wxmeow weather home">\___^.^</a>
+    </nav>
+</footer>
 </div>
 </body>
 </html>
