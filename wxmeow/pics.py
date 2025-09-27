@@ -1,16 +1,13 @@
-try:
-    from wxmeow import logger
-except ImportError:
-    print("didn't import logger")
-    pass
-
+import logging
 from flask import url_for
 import os
 import traceback
-from wxmeow import app
+
+# Direct logger import to avoid circular imports
+logger = logging.getLogger("wxmeow")
 
 
-def pick_pic(weather=''):
+def pick_pic(weather=""):
     """return path to random applicable pick
 
     parameters
@@ -23,15 +20,21 @@ def pick_pic(weather=''):
     """
     from random import choice
 
-    root = url_for('static', filename='')
+    # Get static URL without relying on app context
+    root = "static"
 
     wxtext = weather_selector(weather)
 
     try:
-        pics = [p for p in os.listdir(os.path.join(root, 'catpics')) if wxtext in p.lower()]
-    except:
+        pics = [
+            p
+            for p in os.listdir(os.path.join("wxmeow", root, "catpics"))
+            if wxtext in p.lower()
+        ]
+    except Exception as e:
+        logger.debug(f"Error finding pics: {str(e)}")
         logger.debug(traceback.format_exc())
-        pics = os.listdir(os.path.join(root, 'catpics'))
+        pics = os.listdir(os.path.join("wxmeow", root, "catpics"))
 
     return choice(pics)
 
@@ -65,4 +68,3 @@ def weather_selector(obs):
     print(f"could not match {obs.lower()}")
     logger.error(f"could not match {obs.lower()}")
     return False
-

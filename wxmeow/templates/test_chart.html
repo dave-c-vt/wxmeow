@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Temperature Chart Test | ^.^____/</title>
+<link href={{ url_for('static', filename='styles.css') }} rel='stylesheet'>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src={{ url_for('static', filename='js/theme-switcher.js') }}></script>
+<script src={{ url_for('static', filename='js/charts/temperature-chart.js') }}></script>
+<style></style>
+    .test-controls {
+        margin: 20px auto;
+        padding: 20px;
+        background-color: var(--card-bg-color);
+        border-radius: 8px;
+        box-shadow: var(--card-shadow);
+        max-width: 600px;
+    }
+    .test-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    .day-button {
+        padding: 10px 20px;
+        background-color: var(--button-bg-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        cursor: pointer;
+        border-radius: 4px;
+    }
+    .day-button:hover {
+        background-color: var(--button-hover-bg);
+    }
+</style>
+<div class="theme-toggle-container">
+    <label class="theme-toggle">
+        <input type="checkbox" id="theme-toggle">
+        <span class="slider">
+            <span class="toggle-icons">
+                <span id="theme-icon-sun">☀️</span>
+                <span id="theme-icon-moon">🌙</span>
+            </span>
+        </span>
+    </label>
+</div>
+</head>
+<body data-location="{{ location|default('') }}">
+<div class="total" align="center">
+    <h2><a href={{ url_for('views.index') }}>^.^___/</a></h2>
+
+    <section>
+        <h2>Temperature Chart Test</h2>
+        <p>This page tests the hourly temperature chart component.</p>
+
+        <div class="test-controls">
+            <h3>Day Selection</h3>
+            <p>Click on a day to view its hourly temperature data:</p>
+            <div class="test-buttons">
+                <button class="day-button" id="0">Today</button>
+                <button class="day-button" id="1">Tomorrow</button>
+                <button class="day-button" id="2">Day 3</button>
+                <button class="day-button" id="3">Day 4</button>
+                <button class="day-button" id="4">Day 5</button>
+            </div>
+
+            <h3>Location</h3>
+            <p>Current location: <strong>{{ location|default('None') }}</strong></p>
+            <form action="{{ url_for('views.test_chart') }}" method="get">
+                <input type="text" name="location" placeholder="Enter location" value="{{ location|default('') }}">
+                <button type="submit">Update</button>
+            </form>
+        </div>
+
+        <!-- This is where the chart will appear -->
+        <div id="hourly-temperature-chart" style="height: 300px; margin: 20px auto; max-width: 95%;">
+            <p>Loading chart data...</p>
+        </div>
+    </section>
+
+    <script>
+        // Custom event trigger for day selection
+        var lastSelectedDay = 0;
+
+        $(document).ready(function(){
+            $(".day-button").click(function(){
+                var dayIndex = parseInt($(this).attr('id'));
+                lastSelectedDay = dayIndex;
+                console.log("Day button clicked:", dayIndex);
+
+                // Highlight the selected button
+                $(".day-button").css("font-weight", "normal");
+                $(this).css("font-weight", "bold");
+
+                // Trigger the custom event
+                $(document).trigger('daySelected', [dayIndex]);
+            });
+
+            // Initially select day 0
+            setTimeout(function() {
+                $("#0").click();
+            }, 500);
+        });
+    </script>
+
+    <br><br>
+    <h2><a href={{ url_for('views.index') }}>\___^.^</a></h2>
+</div>
+</body>
+</html>

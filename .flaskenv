@@ -1,2 +1,2 @@
 FLASK_APP=wxmeow/__init__.py
-FLASK_ENV=development
+FLASK_DEBUG=1
