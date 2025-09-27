@@ -7,7 +7,7 @@
     --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     --button-bg-color: #ffffff;
     --button-hover-bg: #e6f3ff;
-    --link-color: #0056b3;
+    --link-color: #1a1a1a;
     --input-border: 2px solid #666666;
     --input-border-focus: 3px solid #0056b3;
     --toggle-bg: #e0e0e0;
@@ -28,7 +28,7 @@
     --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     --button-bg-color: #2a2a2a;
     --button-hover-bg: #3a3a3a;
-    --link-color: #66b3ff;
+    --link-color: #ffffff;
     --input-border: 2px solid #999999;
     --input-border-focus: 3px solid #66b3ff;
     --toggle-bg: #444444;
@@ -55,13 +55,13 @@ body {
     :root {
         --border-color: #000000;
         --text-color: #000000;
-        --link-color: #0000ff;
+        --link-color: #000000;
     }
 
     [data-theme="dark"] {
         --border-color: #ffffff;
         --text-color: #ffffff;
-        --link-color: #66b3ff;
+        --link-color: #ffffff;
     }
 }
 

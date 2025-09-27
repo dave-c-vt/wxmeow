@@ -9,100 +9,6 @@ document.addEventListener("DOMContentLoaded", function () {
   let charts = {}; // Store chart instances for each day
   let hourlyData = null; // Store the hourly forecast data
 
-  // Initialize hourly data from window object if available
-  if (window.hourlyData) {
-    hourlyData = window.hourlyData;
-    console.log(
-      `[DEBUG] Initialized hourlyData from window: ${hourlyData.length} data points`,
-    );
-  } else {
-    console.warn("[WARNING] No window.hourlyData found");
-  }
-
-  // Get user's current timezone for proper time handling
-  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  console.debug(`[DEBUG] Detected user timezone: ${userTimezone}`);
-
-  // Function to display timezone information for debugging
-  function displayTimezoneInfo() {
-    const now = new Date();
-    const utcOffset = now.getTimezoneOffset();
-    const offsetHours = Math.floor(Math.abs(utcOffset) / 60);
-    const offsetMinutes = Math.abs(utcOffset) % 60;
-    const offsetSign = utcOffset <= 0 ? "+" : "-";
-
-    console.log(`[TIMEZONE INFO] User timezone: ${userTimezone}`);
-    console.log(
-      `[TIMEZONE INFO] UTC offset: ${offsetSign}${offsetHours.toString().padStart(2, "0")}:${offsetMinutes.toString().padStart(2, "0")}`,
-    );
-    console.log(`[TIMEZONE INFO] Current local time: ${now.toLocaleString()}`);
-    console.log(`[TIMEZONE INFO] Current UTC time: ${now.toUTCString()}`);
-  }
-
-  // Validate that timezone conversion is working correctly
-  function validateTimezoneConversion(sampleTime) {
-    try {
-      const utcDate = new Date(sampleTime);
-      const localDate = new Date(
-        utcDate.toLocaleString("en-US", { timeZone: userTimezone }),
-      );
-
-      console.log(`[TIMEZONE VALIDATION] Original: ${sampleTime}`);
-      console.log(`[TIMEZONE VALIDATION] UTC parsed: ${utcDate.toISOString()}`);
-      console.log(
-        `[TIMEZONE VALIDATION] Local converted: ${localDate.toISOString()}`,
-      );
-      console.log(`[TIMEZONE VALIDATION] Local hour: ${localDate.getHours()}`);
-
-      return {
-        original: sampleTime,
-        utc: utcDate,
-        local: localDate,
-        localHour: localDate.getHours(),
-      };
-    } catch (e) {
-      console.error(`[TIMEZONE VALIDATION] Error: ${e.message}`);
-      return null;
-    }
-  }
-
-  // Initialize timezone information on load
-  displayTimezoneInfo();
-
-  // Validate timezone conversion with a sample time
-  const sampleUTCTime = new Date().toISOString();
-  validateTimezoneConversion(sampleUTCTime);
-
-  // Helper function to convert UTC time to local timezone
-  function convertUTCToLocal(utcTimeString) {
-    try {
-      const utcDate = new Date(utcTimeString);
-      if (isNaN(utcDate.getTime())) {
-        console.debug(`[DEBUG] Invalid UTC time string: ${utcTimeString}`);
-        return utcTimeString;
-      }
-
-      // Create a new date in local timezone with the same components
-      const localDate = new Date(
-        utcDate.getUTCFullYear(),
-        utcDate.getUTCMonth(),
-        utcDate.getUTCDate(),
-        utcDate.getUTCHours(),
-        utcDate.getUTCMinutes(),
-        utcDate.getUTCSeconds(),
-        utcDate.getUTCMilliseconds(),
-      );
-
-      console.debug(
-        `[DEBUG] Converted ${utcTimeString} (UTC) to ${localDate.toISOString()} (local)`,
-      );
-      return localDate.toISOString();
-    } catch (e) {
-      console.debug(`[DEBUG] Error converting UTC to local: ${e.message}`);
-      return utcTimeString;
-    }
-  }
-
   // Helper function to check if dark mode is active
   function isDarkMode() {
     return document.documentElement.getAttribute("data-theme") === "dark";
@@ -181,45 +87,10 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    // Prepare data for the chart - ensure proper 24-hour ordering
-    console.debug(`[DEBUG] Filtered data length: ${filteredData.length}`);
-    console.debug(`[DEBUG] First item time: ${filteredData[0]?.time}`);
-    console.debug(
-      `[DEBUG] Last item time: ${filteredData[filteredData.length - 1]?.time}`,
-    );
-
-    // Sort data by hour to ensure proper ordering
-    filteredData.sort((a, b) => {
-      const hourA = new Date(a.time).getHours();
-      const hourB = new Date(b.time).getHours();
-      return hourA - hourB;
-    });
-
-    // Create time-based data points instead of just labels
-    const chartData = filteredData.map((item, index) => {
-      const date = new Date(item.time);
-      const hour = date.getHours();
-      console.debug(
-        `[DEBUG] Item ${index}: hour ${hour}, temp ${item.temperature}`,
-      );
-      return {
-        x: hour, // Use hour as x-axis value
-        y:
-          item.temperature !== null && item.temperature !== undefined
-            ? item.temperature
-            : null,
-        time: item.time,
-        condition: item.condition || "",
-      };
-    });
-
-    console.debug(
-      `[DEBUG] Chart data prepared with ${chartData.length} points`,
-    );
-    console.debug(
-      `[DEBUG] Noon data point:`,
-      chartData.find((d) => d.x === 12),
-    );
+    // Prepare data for the chart
+    const labels = filteredData.map((item) => formatTime(item.time));
+    const temperatures = filteredData.map((item) => item.temperature);
+    const conditions = filteredData.map((item) => item.condition || "");
 
     // Create canvas element if it doesn't exist
     chartContainer.innerHTML = ""; // Clear any previous content
@@ -253,11 +124,11 @@ document.addEventListener("DOMContentLoaded", function () {
     currentChart = new Chart(ctx, {
       type: "line",
       data: {
+        labels: labels,
         datasets: [
           {
             label: "Temperature (°F)",
-            data: chartData,
-            spanGaps: true,
+            data: temperatures,
             backgroundColor: gradient,
             borderColor: isDarkMode()
               ? "rgba(255, 159, 64, 1)"
@@ -283,8 +154,8 @@ document.addEventListener("DOMContentLoaded", function () {
         maintainAspectRatio: false,
         layout: {
           padding: {
-            left: 40,
-            right: 10,
+            left: 10,
+            right: 30,
             top: 20,
             bottom: 10,
           },
@@ -316,19 +187,11 @@ document.addEventListener("DOMContentLoaded", function () {
             displayColors: false,
             callbacks: {
               label: function (context) {
-                const dataPoint = context.raw;
-                const temp = dataPoint.y;
-                const condition = dataPoint.condition || "Unknown";
+                const dataIndex = context.dataIndex;
+                const temp = temperatures[dataIndex];
+                const condition = conditions[dataIndex] || "Unknown";
+                const formattedTemp = temp ? `${temp}°F` : "N/A";
 
-                // Handle null/missing temperature data
-                if (temp === null || temp === undefined) {
-                  return [
-                    `Temperature: No data available`,
-                    `Condition: ${condition}`,
-                  ];
-                }
-
-                const formattedTemp = `${temp}°F`;
                 return [
                   `Temperature: ${formattedTemp}`,
                   `Condition: ${condition}`,
@@ -337,19 +200,17 @@ document.addEventListener("DOMContentLoaded", function () {
               title: function (tooltipItems) {
                 // Format the time in a more readable way
                 try {
-                  const dataPoint = tooltipItems[0].raw;
-                  const date = new Date(dataPoint.time);
+                  const time = tooltipItems[0].label;
+                  const date = new Date(
+                    filteredData[tooltipItems[0].dataIndex].time,
+                  );
                   return date.toLocaleTimeString([], {
                     weekday: "short",
                     hour: "2-digit",
                     minute: "2-digit",
                   });
                 } catch (e) {
-                  const hour = tooltipItems[0].raw.x;
-                  if (hour === 0) return "12:00 AM";
-                  if (hour === 12) return "12:00 PM";
-                  if (hour < 12) return `${hour}:00 AM`;
-                  return `${hour - 12}:00 PM`;
+                  return tooltipItems[0].label;
                 }
               },
             },
@@ -383,59 +244,16 @@ document.addEventListener("DOMContentLoaded", function () {
           x: {
             title: {
               display: true,
-              text: "Time of Day",
+              text: "Time",
               color: isDarkMode() ? "#e0e0e0" : "#333333",
             },
-            type: "linear",
-            position: "bottom",
-            min: -0.5,
-            max: 23.5,
             ticks: {
               color: isDarkMode() ? "#e0e0e0" : "#333333",
-              stepSize: 2,
-              callback: function (value) {
-                // Show key hours with special formatting
-                if (value === 0) return "12 AM";
-                if (value === 6) return "6 AM";
-                if (value === 12) return "🌞 12 PM";
-                if (value === 18) return "6 PM";
-                if (value % 2 === 0) {
-                  // Format other even hours
-                  if (value < 12) return `${value} AM`;
-                  if (value > 12) return `${value - 12} PM`;
-                }
-                return "";
-              },
             },
             grid: {
-              display: true,
-              drawOnChartArea: true,
-              color: function (context) {
-                const value = context.tick.value;
-                // Emphasize noon grid line
-                if (value === 12) {
-                  return isDarkMode()
-                    ? "rgba(255, 159, 64, 0.5)"
-                    : "rgba(66, 133, 244, 0.5)";
-                }
-                // Show grid lines for every 6 hours
-                if (value % 6 === 0) {
-                  return isDarkMode()
-                    ? "rgba(255, 255, 255, 0.2)"
-                    : "rgba(0, 0, 0, 0.2)";
-                }
-                return isDarkMode()
-                  ? "rgba(255, 255, 255, 0.05)"
-                  : "rgba(0, 0, 0, 0.05)";
-              },
-              lineWidth: function (context) {
-                const value = context.tick.value;
-                // Make noon grid line thicker
-                if (value === 12) return 3;
-                // Make 6-hour marks slightly thicker
-                if (value % 6 === 0) return 1.5;
-                return 1;
-              },
+              color: isDarkMode()
+                ? "rgba(255, 255, 255, 0.1)"
+                : "rgba(0, 0, 0, 0.1)",
             },
           },
         },
@@ -450,18 +268,13 @@ document.addEventListener("DOMContentLoaded", function () {
     charts[dayIndex] = currentChart;
   }
 
-  // Helper function to get the date for the selected day index in local timezone
+  // Helper function to get the date for the selected day index
   function getSelectedDate(dayIndex) {
-    // Handle the current day (index 0) as today in local timezone
+    // Handle the current day (index 0) as today
     const today = new Date();
-    const localToday = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-    );
 
     if (dayIndex === 0) {
-      return localToday;
+      return today;
     }
 
     // For other days, try to get the date from the forecast
@@ -471,26 +284,17 @@ document.addEventListener("DOMContentLoaded", function () {
       if (dateText) {
         // Handle different date formats - try to parse the date
         try {
-          const parsedDate = new Date(dateText);
-          // Ensure the parsed date is in local timezone
-          return new Date(
-            parsedDate.getFullYear(),
-            parsedDate.getMonth(),
-            parsedDate.getDate(),
-          );
+          return new Date(dateText);
         } catch (e) {
           // Fall through to the fallback
         }
       }
     }
 
-    // Fallback: calculate the date based on the index in local timezone
-    const targetDate = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate() + parseInt(dayIndex),
-    );
-    return targetDate;
+    // Fallback: calculate the date based on the index
+    const date = new Date();
+    date.setDate(today.getDate() + parseInt(dayIndex));
+    return date;
   }
 
   // Filter hourly data by date (matching just the date portion)
@@ -500,26 +304,19 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     console.debug("[DEBUG] Target date:", targetDate);
-    console.debug(`[DEBUG] User timezone: ${userTimezone}`);
-    console.debug("[DEBUG] Target date in local timezone:", targetDateLocal);
     console.debug("[DEBUG] First hourly data item:", hourlyData[0]);
 
-    // Use local timezone for consistent date comparison
-    const targetDateLocal = new Date(
-      targetDate.getFullYear(),
-      targetDate.getMonth(),
-      targetDate.getDate(),
-    );
-    const targetDateStr = targetDateLocal.toLocaleDateString("en-CA"); // YYYY-MM-DD format
+    // Convert target date to strings in different formats for comparison
+    const targetDateStr = targetDate.toISOString().split("T")[0];
     const targetDateDay = targetDate.getDate();
     const targetMonth = targetDate.getMonth() + 1; // JavaScript months are 0-indexed
 
-    // Filter data by comparing dates in local timezone
+    // Filter data by comparing dates
     let filteredData = hourlyData.filter((item) => {
       try {
         if (!item.time) return false;
 
-        // Parse the date from the time field - assume it might be UTC
+        // Parse the date from the time field
         const itemDate = new Date(item.time);
 
         // Check if it's a valid date
@@ -528,25 +325,16 @@ document.addEventListener("DOMContentLoaded", function () {
           return false;
         }
 
-        // Convert to local timezone for comparison
-        const localItemDate = new Date(
-          itemDate.toLocaleString("en-US", { timeZone: userTimezone }),
-        );
+        // Compare by ISO date string
+        const itemDateStr = itemDate.toISOString().split("T")[0];
+        const matchesISO = itemDateStr === targetDateStr;
 
-        // Create date strings for comparison (local timezone)
-        const itemDateStr = localItemDate.toLocaleDateString("en-CA"); // YYYY-MM-DD format
-        const matchesDateStr = itemDateStr === targetDateStr;
-
-        // Compare by day and month as fallback (in local timezone)
+        // Compare by day and month as fallback
         const matchesDay =
-          localItemDate.getDate() === targetDateDay &&
-          localItemDate.getMonth() + 1 === targetMonth;
+          itemDate.getDate() === targetDay &&
+          itemDate.getMonth() + 1 === targetMonth;
 
-        console.debug(
-          `[DEBUG] Item time: ${item.time}, Local time: ${localItemDate.toISOString()}, Target: ${targetDateStr}, Matches: ${matchesDateStr || matchesDay}`,
-        );
-
-        return matchesDateStr || matchesDay;
+        return matchesISO || matchesDay;
       } catch (e) {
         console.debug("[DEBUG] Error parsing date:", e, item);
         return false;
@@ -557,17 +345,12 @@ document.addEventListener("DOMContentLoaded", function () {
       `[DEBUG] Filtered ${filteredData.length} items for ${targetDateStr}`,
     );
 
-    // If we got results, ensure they're sorted by time and fill gaps for 24-hour coverage
+    // If we got results, return them
     if (filteredData.length > 0) {
       console.debug(
         `[DEBUG] Successfully filtered ${filteredData.length} data points for date ${targetDateStr}`,
       );
-
-      // Sort by time to ensure proper order
-      filteredData.sort((a, b) => new Date(a.time) - new Date(b.time));
-
-      // Ensure we have 24-hour coverage centered around noon
-      return ensureFullDayCoverage(filteredData, targetDate);
+      return filteredData;
     }
 
     // Find the day of the week for our target date (0=Sunday, 1=Monday, etc)
@@ -582,117 +365,28 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     if (filteredData.length > 0) {
-      return ensureFullDayCoverage(filteredData, targetDate);
+      return filteredData;
     }
 
     // Third attempt: if we're showing today (day 0), show the first 24 hours of data
-    const localToday = new Date();
-    const todayStr = localToday.toLocaleDateString("en-CA");
-    if (targetDateStr === todayStr) {
-      console.debug(`[DEBUG] Showing today's data (${todayStr})`);
-      const dayData = hourlyData.slice(0, Math.min(24, hourlyData.length));
-      return ensureFullDayCoverage(dayData, targetDate);
+    if (targetDate.toDateString() === new Date().toDateString()) {
+      return hourlyData.slice(0, Math.min(24, hourlyData.length));
     }
 
     // Fourth attempt: if we're showing day N, show hours (N*24) through ((N+1)*24)
-    // But first convert all times to local timezone to find the right slice
-    const dayDiff = Math.floor(
-      (targetDate - localToday) / (24 * 60 * 60 * 1000),
-    );
+    const today = new Date();
+    const dayDiff = Math.floor((targetDate - today) / (24 * 60 * 60 * 1000));
     if (dayDiff >= 0 && dayDiff < 5) {
-      console.debug(
-        `[DEBUG] Attempting day offset method for day difference: ${dayDiff}`,
-      );
       const startIndex = Math.min(dayDiff * 24, hourlyData.length - 1);
       const endIndex = Math.min(startIndex + 24, hourlyData.length);
-      const dayData = hourlyData.slice(startIndex, endIndex);
-      return ensureFullDayCoverage(dayData, targetDate);
+      return hourlyData.slice(startIndex, endIndex);
     }
 
     // If all else fails, return empty array
     return [];
   }
 
-  // Helper function to ensure 24-hour coverage with noon centered in local timezone
-  function ensureFullDayCoverage(data, targetDate) {
-    console.debug(
-      `[DEBUG] ensureFullDayCoverage called with ${data.length} items`,
-    );
-
-    // Always create a complete 24-hour structure regardless of input
-    const fullDayData = [];
-    const baseDate = new Date(
-      targetDate.getFullYear(),
-      targetDate.getMonth(),
-      targetDate.getDate(),
-      0,
-      0,
-      0,
-      0,
-    );
-
-    // Create exactly 24 data points for hours 0-23
-    for (let hour = 0; hour < 24; hour++) {
-      const hourDate = new Date(
-        baseDate.getFullYear(),
-        baseDate.getMonth(),
-        baseDate.getDate(),
-        hour,
-        0,
-        0,
-        0,
-      );
-
-      // Find existing data for this hour
-      let existingData = null;
-      if (data && data.length > 0) {
-        existingData = data.find((item) => {
-          if (!item.time) return false;
-          const itemDate = new Date(item.time);
-          const itemHour = itemDate.getHours();
-          return itemHour === hour;
-        });
-      }
-
-      if (existingData) {
-        // Use existing data but ensure proper time format
-        fullDayData.push({
-          time: hourDate.toISOString(),
-          temperature: existingData.temperature,
-          condition: existingData.condition || "Clear",
-        });
-        console.debug(
-          `[DEBUG] Hour ${hour}: using existing data (${existingData.temperature}°F)`,
-        );
-      } else {
-        // Create realistic placeholder data
-        const baseTemp = 65;
-        // Create temperature curve: lowest at 6 AM, highest at 2 PM
-        const hourlyVariation = Math.sin(((hour - 14) * Math.PI) / 12) * 15;
-        const temperature = Math.round(baseTemp + hourlyVariation);
-
-        fullDayData.push({
-          time: hourDate.toISOString(),
-          temperature: temperature,
-          condition: "Forecast Unavailable",
-        });
-        console.debug(
-          `[DEBUG] Hour ${hour}: created placeholder (${temperature}°F)`,
-        );
-      }
-    }
-
-    console.debug(`[DEBUG] Created complete 24-hour dataset:`);
-    console.debug(`[DEBUG] Midnight (hour 0): ${fullDayData[0].temperature}°F`);
-    console.debug(`[DEBUG] 6 AM (hour 6): ${fullDayData[6].temperature}°F`);
-    console.debug(`[DEBUG] NOON (hour 12): ${fullDayData[12].temperature}°F`);
-    console.debug(`[DEBUG] 6 PM (hour 18): ${fullDayData[18].temperature}°F`);
-    console.debug(`[DEBUG] 11 PM (hour 23): ${fullDayData[23].temperature}°F`);
-
-    return fullDayData;
-  }
-
-  // Format time for display in chart labels using browser's local timezone
+  // Format time for display in chart labels
   function formatTime(timeString) {
     try {
       const date = new Date(timeString);
@@ -700,20 +394,9 @@ document.addEventListener("DOMContentLoaded", function () {
         throw new Error("Invalid date");
       }
 
-      // Get hour in local timezone
-      const hour = date.getHours();
-
-      // Special formatting for key hours to emphasize noon (in local time)
-      if (hour === 0) return "12 AM";
-      if (hour === 6) return "6 AM";
-      if (hour === 12) return "12 PM"; // Noon - emphasized (local time)
-      if (hour === 18) return "6 PM";
-
-      // Standard formatting for other hours using browser's locale and timezone
+      // Just show hour without minutes for cleaner display
       return date.toLocaleTimeString([], {
         hour: "numeric",
-        hour12: true,
-        timeZone: userTimezone,
       });
     } catch (e) {
       // If we can't parse the date, see if it contains a time string we can extract
@@ -739,7 +422,6 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Format date for display in chart title
-  // Format date for display
   function formatDate(date) {
     return date.toLocaleDateString([], {
       weekday: "short",

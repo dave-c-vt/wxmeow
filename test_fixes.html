@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart and Link Fixes Test - wxmeow</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="static/js/charts/temperature-chart.js"></script>
+    <style>
+        :root {
+            --background-color: #ffffff;
+            --text-color: #1a1a1a;
+            --border-color: #666666;
+            --card-bg-color: #f8f8f8;
+            --link-color: #1a1a1a;
+        }
+
+        [data-theme="dark"] {
+            --background-color: #121212;
+            --text-color: #ffffff;
+            --border-color: #999999;
+            --card-bg-color: #1e1e1e;
+            --link-color: #ffffff;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .test-section {
+            background: var(--card-bg-color);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        a {
+            color: var(--link-color);
+            text-decoration: underline;
+        }
+
+        a:hover, a:visited {
+            color: var(--link-color);
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--card-bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .day-selector {
+            display: inline-block;
+            background: var(--card-bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .day-selector:hover, .day-selector.selected-day {
+            background: var(--border-color);
+        }
+
+        .hourly-chart {
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto;
+            min-height: 300px;
+            display: none;
+        }
+
+        #hourly-temperature-chart-0 {
+            display: block;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .status.pass {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .status.fail {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body data-location="Boston, MA">
+    <button class="theme-toggle" onclick="toggleTheme()">🌓 Toggle Theme</button>
+
+    <div class="container">
+        <h1>Chart and Link Fixes Test</h1>
+
+        <div class="test-section">
+            <h2>Link Color Test</h2>
+            <p>Links should be <strong>black in light mode</strong> and <strong>white in dark mode</strong>, not blue.</p>
+            <p>Test links:
+                <a href="#">Normal Link</a> |
+                <a href="#" onclick="return false;">Clicked Link</a> |
+                <a href="#visited" style="color: var(--link-color);">Visited-style Link</a>
+            </p>
+            <div id="link-test-status" class="status"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Chart Loading Test</h2>
+            <p>Charts should load with hourly temperature data and noon should be centered.</p>
+
+            <div class="day-selectors">
+                <a href="#" class="day-selector selected-day" id="0" onclick="selectDay(0); return false;">Today</a>
+                <a href="#" class="day-selector" id="1" onclick="selectDay(1); return false;">Tomorrow</a>
+                <a href="#" class="day-selector" id="2" onclick="selectDay(2); return false;">Day 3</a>
+                <a href="#" class="day-selector" id="3" onclick="selectDay(3); return false;">Day 4</a>
+                <a href="#" class="day-selector" id="4" onclick="selectDay(4); return false;">Day 5</a>
+            </div>
+
+            <div id="hourly-temperature-chart-0" class="hourly-chart"></div>
+            <div id="hourly-temperature-chart-1" class="hourly-chart"></div>
+            <div id="hourly-temperature-chart-2" class="hourly-chart"></div>
+            <div id="hourly-temperature-chart-3" class="hourly-chart"></div>
+            <div id="hourly-temperature-chart-4" class="hourly-chart"></div>
+
+            <div id="chart-test-status" class="status"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Results</h2>
+            <div id="overall-status"></div>
+        </div>
+    </div>
+
+    <script>
+        // Sample hourly data for testing
+        window.hourlyData = [
+            {"time": "2025-09-26T18:00:00-04:00", "temperature": 76, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-26T19:00:00-04:00", "temperature": 74, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-26T20:00:00-04:00", "temperature": 72, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-26T21:00:00-04:00", "temperature": 70, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-26T22:00:00-04:00", "temperature": 68, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-26T23:00:00-04:00", "temperature": 66, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-27T00:00:00-04:00", "temperature": 64, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-27T01:00:00-04:00", "temperature": 62, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-27T02:00:00-04:00", "temperature": 61, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-27T03:00:00-04:00", "temperature": 60, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-27T04:00:00-04:00", "temperature": 59, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-27T05:00:00-04:00", "temperature": 58, "condition": "Clear", "precip": 0},
+            {"time": "2025-09-27T06:00:00-04:00", "temperature": 59, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T07:00:00-04:00", "temperature": 61, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T08:00:00-04:00", "temperature": 64, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T09:00:00-04:00", "temperature": 67, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T10:00:00-04:00", "temperature": 70, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T11:00:00-04:00", "temperature": 72, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T12:00:00-04:00", "temperature": 74, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T13:00:00-04:00", "temperature": 76, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T14:00:00-04:00", "temperature": 77, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T15:00:00-04:00", "temperature": 76, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T16:00:00-04:00", "temperature": 75, "condition": "Sunny", "precip": 0},
+            {"time": "2025-09-27T17:00:00-04:00", "temperature": 73, "condition": "Sunny", "precip": 0}
+        ];
+
+        var lastSelectedDay = 0;
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+
+            setTimeout(testLinkColors, 100);
+        }
+
+        function selectDay(dayIndex) {
+            console.log("Selecting day:", dayIndex);
+
+            // Hide all charts
+            for (let i = 0; i < 5; i++) {
+                const chart = document.getElementById(`hourly-temperature-chart-${i}`);
+                if (chart) {
+                    chart.style.display = i === parseInt(dayIndex) ? 'block' : 'none';
+                }
+            }
+
+            // Update day selector styling
+            document.querySelectorAll('.day-selector').forEach(btn => btn.classList.remove('selected-day'));
+            document.getElementById(dayIndex.toString()).classList.add('selected-day');
+
+            lastSelectedDay = parseInt(dayIndex);
+
+            // Trigger chart creation
+            if (typeof window.temperatureChart !== 'undefined') {
+                $(document).trigger('daySelected', [dayIndex]);
+            }
+        }
+
+        function testLinkColors() {
+            const link = document.querySelector('a');
+            const computedStyle = window.getComputedStyle(link);
+            const linkColor = computedStyle.color;
+            const theme = document.documentElement.getAttribute('data-theme');
+
+            let expectedColor, testPass;
+            if (theme === 'dark') {
+                expectedColor = 'rgb(255, 255, 255)'; // white
+                testPass = linkColor === expectedColor;
+            } else {
+                expectedColor = 'rgb(26, 26, 26)'; // black
+                testPass = linkColor === expectedColor;
+            }
+
+            const statusEl = document.getElementById('link-test-status');
+            if (testPass) {
+                statusEl.className = 'status pass';
+                statusEl.innerHTML = `✅ PASS: Links are ${expectedColor} in ${theme} mode`;
+            } else {
+                statusEl.className = 'status fail';
+                statusEl.innerHTML = `❌ FAIL: Links are ${linkColor}, expected ${expectedColor} in ${theme} mode`;
+            }
+
+            updateOverallStatus();
+        }
+
+        function testChartLoading() {
+            const hasHourlyData = window.hourlyData && window.hourlyData.length > 0;
+            const chartContainer = document.getElementById('hourly-temperature-chart-0');
+            const hasCanvas = chartContainer && chartContainer.querySelector('canvas');
+
+            const statusEl = document.getElementById('chart-test-status');
+
+            let tests = [];
+            tests.push(hasHourlyData ? "✅ Hourly data loaded" : "❌ No hourly data");
+            tests.push(chartContainer ? "✅ Chart container found" : "❌ No chart container");
+            tests.push(hasCanvas ? "✅ Chart canvas created" : "❌ No chart canvas");
+
+            const allPassed = hasHourlyData && chartContainer && hasCanvas;
+
+            if (allPassed) {
+                statusEl.className = 'status pass';
+                statusEl.innerHTML = "✅ PASS: Chart loading successful<br>" + tests.join("<br>");
+            } else {
+                statusEl.className = 'status fail';
+                statusEl.innerHTML = "❌ FAIL: Chart loading issues<br>" + tests.join("<br>");
+            }
+
+            updateOverallStatus();
+        }
+
+        function updateOverallStatus() {
+            const linkStatus = document.getElementById('link-test-status').className.includes('pass');
+            const chartStatus = document.getElementById('chart-test-status').className.includes('pass');
+            const overallEl = document.getElementById('overall-status');
+
+            if (linkStatus && chartStatus) {
+                overallEl.innerHTML = "🎉 <strong>ALL TESTS PASSED!</strong> Both chart and link fixes are working correctly.";
+                overallEl.style.color = "#155724";
+                overallEl.style.background = "#d4edda";
+                overallEl.style.border = "1px solid #c3e6cb";
+                overallEl.style.padding = "15px";
+                overallEl.style.borderRadius = "4px";
+            } else {
+                overallEl.innerHTML = "⚠️ <strong>SOME TESTS FAILED</strong> - Check individual test results above.";
+                overallEl.style.color = "#721c24";
+                overallEl.style.background = "#f8d7da";
+                overallEl.style.border = "1px solid #f5c6cb";
+                overallEl.style.padding = "15px";
+                overallEl.style.borderRadius = "4px";
+            }
+        }
+
+        // Initialize tests when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("Test page loaded, running tests...");
+
+            setTimeout(() => {
+                testLinkColors();
+                testChartLoading();
+
+                // Try to trigger chart creation
+                if (typeof jQuery !== 'undefined') {
+                    $(document).trigger('daySelected', [0]);
+
+                    // Retest charts after a delay
+                    setTimeout(testChartLoading, 1000);
+                }
+            }, 500);
+        });
+    </script>
+</body>
+</html>

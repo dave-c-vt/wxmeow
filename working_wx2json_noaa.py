@@ -11,7 +11,6 @@ import sys
 import time
 import logging
 import traceback
-import json
 from typing import Dict, List, Any, Optional
 
 from wxmeow.weather_query import (
@@ -290,7 +289,26 @@ class wxmeow:
                 logger.warning(
                     f"Error generating forecast icon HTML for day {i}: {str(e)}"
                 )
-                onclick_handler = f"selectDay({i}); return false;"
+                onclick_handler = (
+                    "$('.day-selector').removeClass('selected-day');"
+                    + "$(this).addClass('selected-day');"
+                    + "$('.tr"
+                    + str(i)
+                    + "').show();"
+                    + "$('.tr0,.tr1,.tr2,.tr3,.tr4').not('.tr"
+                    + str(i)
+                    + "').hide();"
+                    + "$('.day-description').hide();"
+                    + "$('#day-description-"
+                    + str(i)
+                    + "').show();"
+                    + "lastSelectedDay="
+                    + str(i)
+                    + ";"
+                    + "$(document).trigger('daySelected', ["
+                    + str(i)
+                    + "]);"
+                )
                 td_style = tdc if i >= 3 else td[0]
                 futurepics += (
                     td_style
@@ -753,8 +771,7 @@ class wxmeow:
         there must be a better way, but who cares...
         """
 
-        javascript = (
-            """
+        javascript = """
 <style>
 .day-selector {
     cursor: pointer;
@@ -765,16 +782,6 @@ class wxmeow:
     margin: auto;
     width: 90px;
     height: 90px;
-    text-decoration: none !important;
-}
-.day-selector:hover {
-    text-decoration: none !important;
-}
-a {
-    text-decoration: none !important;
-}
-a:hover {
-    text-decoration: none !important;
 }
 .day-description {
     margin-top: 5px;
@@ -809,14 +816,6 @@ a:hover {
     width: 95%;
     background-color: var(--card-bg-color, #fff);
     min-height: 300px;
-    display: none;
-}
-[id^='hourly-temperature-chart-'] {
-    display: none;
-    min-height: 300px;
-    width: 100%;
-    max-width: 800px;
-    margin: 20px auto;
 }
 .chart-row {
     display: block;
@@ -840,218 +839,61 @@ table {
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-           // Set up hourly data for charts BEFORE loading temperature-chart.js
-           window.hourlyData = """
-            + json.dumps(self.meowhourly)
-            + """;
-           console.log("Hourly data loaded:", window.hourlyData ? window.hourlyData.length : 0, "data points");
+           // Global variable to track the selected day
+           var lastSelectedDay = 0;
 
-</script>
-<script>
-          // Global variables
-          var lastSelectedDay = 0;
-          let charts = {};
+           // Global function for day selection
+           function selectDay(dayIndex) {
+               console.log("Selecting day:", dayIndex);
 
-          function isDarkMode() {
-              return document.documentElement.getAttribute("data-theme") === "dark";
-          }
+               // Hide all chart containers first
+               $("[id^='hourly-temperature-chart-']").hide().css("display", "none");
 
-          function createTemperatureChart(dayIndex) {
-              console.log("Creating chart for day " + dayIndex);
+               // Hide all day details and charts
+               $(".day-detail, .chart-row").hide();
+               $(".day-selector").removeClass("selected-day");
 
-              // Debug timing and DOM state
-              console.log("DOM ready state:", document.readyState);
-              console.log("Window hourly data available:", !!window.hourlyData);
+               // Show selected day's content
+               $(".tr" + dayIndex).show();
+               $("#" + dayIndex).addClass("selected-day");
 
-              if (!window.hourlyData || window.hourlyData.length === 0) {
-                  console.error("No hourly data available");
-                  return;
-              }
+               // Show ONLY the selected chart and hide all others
+               for (let i = 0; i < 5; i++) {
+                   const chartElement = $("#hourly-temperature-chart-" + i);
+                   if (i === parseInt(dayIndex)) {
+                       chartElement.css({
+                           "display": "block",
+                           "width": "100%",
+                           "max-width": "800px",
+                           "margin": "20px auto",
+                           "min-height": "300px"
+                       }).show();
+                   } else {
+                       chartElement.hide().css("display", "none");
+                   }
+               }
 
-              const chartContainer = document.getElementById("hourly-temperature-chart-" + dayIndex);
-              if (!chartContainer) {
-                  console.error("Chart container not found for day " + dayIndex);
-                  // List all available chart containers for debugging
-                  const allContainers = document.querySelectorAll('[id^="hourly-temperature-chart-"]');
-                  console.log("Available chart containers:", Array.from(allContainers).map(c => c.id));
-                  return;
-              }
+               // Update global state
+               lastSelectedDay = parseInt(dayIndex);
 
-              console.log("Chart container found:", chartContainer.id, "display:", chartContainer.style.display);
+               // Trigger chart update event
+               $(document).trigger('daySelected', [dayIndex]);
+           }
 
-              // Destroy existing chart
-              if (charts[dayIndex]) {
-                  charts[dayIndex].destroy();
-                  charts[dayIndex] = null;
-              }
+           $(document).ready(function(){
+                console.log("Weather forecast day selector initialization");
 
-              // Filter data for selected day - use a simpler approach
-              // Each day gets 24 hours starting from dayIndex * 24
-              const startIndex = dayIndex * 24;
-              const endIndex = Math.min(startIndex + 24, window.hourlyData.length);
-              const filteredData = window.hourlyData.slice(startIndex, endIndex);
+                // Initially select day 0
+                selectDay(0);
 
-              console.log("Day " + dayIndex + ": startIndex=" + startIndex + ", endIndex=" + endIndex + ", filteredData.length=" + filteredData.length);
-
-              if (filteredData.length === 0) {
-                  console.error("No data for day " + dayIndex);
-                  chartContainer.innerHTML = "<p>No data available for this day</p>";
-                  return;
-              }
-
-              // Prepare chart data
-              const labels = [];
-              const temperatures = [];
-              const precipProbs = [];
-
-              filteredData.forEach(function(item) {
-                  const date = new Date(item.time);
-                  const hour = date.getHours();
-                  labels.push(hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour > 12 ? (hour-12) + ' PM' : hour + ' AM');
-                  temperatures.push(item.temperature || item.temp);
-                  precipProbs.push(item.precip || 0);
-              });
-
-              // Create canvas
-              chartContainer.innerHTML = '<canvas id="chart-canvas-' + dayIndex + '" style="width: 100%; height: 300px;"></canvas>';
-              const canvas = document.getElementById("chart-canvas-" + dayIndex);
-              canvas.style.display = 'block';
-              const ctx = canvas.getContext('2d');
-
-              // Create gradient
-              const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-              if (isDarkMode()) {
-                  gradient.addColorStop(0, "rgba(255, 159, 64, 0.7)");
-                  gradient.addColorStop(1, "rgba(255, 159, 64, 0.05)");
-              } else {
-                  gradient.addColorStop(0, "rgba(66, 133, 244, 0.7)");
-                  gradient.addColorStop(1, "rgba(66, 133, 244, 0.05)");
-              }
-
-              // Create chart
-              charts[dayIndex] = new Chart(ctx, {
-                  type: 'line',
-                  data: {
-                      labels: labels,
-                      datasets: [{
-                          label: 'Temperature (°F)',
-                          data: temperatures,
-                          backgroundColor: gradient,
-                          borderColor: isDarkMode() ? "rgba(255, 159, 64, 1)" : "rgba(66, 133, 244, 1)",
-                          borderWidth: 2,
-                          pointRadius: 3,
-                          fill: true,
-                          tension: 0.4,
-                          yAxisID: 'temp'
-                      }, {
-                          label: 'Precipitation %',
-                          data: precipProbs,
-                          borderColor: isDarkMode() ? "rgba(100, 200, 255, 1)" : "rgba(50, 150, 200, 1)",
-                          backgroundColor: "rgba(50, 150, 200, 0.2)",
-                          borderWidth: 2,
-                          pointRadius: 3,
-                          fill: false,
-                          tension: 0.4,
-                          yAxisID: 'precip'
-                      }]
-                  },
-                  options: {
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      animation: {
-                          duration: 800,
-                          onComplete: function() {
-                              console.log("Chart animation completed for day " + dayIndex);
-                          }
-                      },
-                      plugins: {
-                          legend: {
-                              display: true,
-                              position: 'top'
-                          },
-                          tooltip: {
-                              mode: 'index',
-                              intersect: false,
-                              callbacks: {
-                                  label: function(context) {
-                                      if (context.datasetIndex === 0) {
-                                          return 'Temperature: ' + context.parsed.y + '°F';
-                                      } else {
-                                          return 'Precipitation: ' + context.parsed.y + '%';
-                                      }
-                                  }
-                              }
-                          }
-                      },
-                      scales: {
-                          temp: {
-                              type: 'linear',
-                              position: 'left',
-                              beginAtZero: false,
-                              title: { display: true, text: 'Temperature (°F)' },
-                              grid: { display: true }
-                          },
-                          precip: {
-                              type: 'linear',
-                              position: 'right',
-                              min: 0,
-                              max: 100,
-                              title: { display: true, text: 'Precipitation (%)' },
-                              grid: { display: false }
-                          },
-                          x: {
-                              title: { display: true, text: 'Hour of Day' }
-                          }
-                      },
-                      interaction: {
-                          intersect: false,
-                          mode: 'index'
-                      }
-                  }
-              });
-
-              console.log("Chart created successfully for day " + dayIndex);
-          }
-
-          // Global function for day selection
-          function selectDay(dayIndex) {
-              console.log("Selecting day:", dayIndex);
-
-              // Hide all chart containers first
-              $("[id^='hourly-temperature-chart-']").hide();
-
-              // Hide all day descriptions
-              $(".day-description").hide();
-              $(".day-selector").removeClass("selected-day");
-
-              // Show selected day's content
-              $("#day-description-" + dayIndex).show();
-              $("#" + dayIndex).addClass("selected-day");
-
-              // Show ONLY the selected chart
-              $("#hourly-temperature-chart-" + dayIndex).show();
-
-              // Update global state
-              lastSelectedDay = parseInt(dayIndex);
-
-              // Create chart for selected day
-              createTemperatureChart(dayIndex);
-          }
-
-          $(document).ready(function(){
-               console.log("Weather forecast day selector initialization");
-               console.log("Document ready, DOM state:", document.readyState);
-
-               // Wait a moment for DOM to fully settle, then initialize
-               setTimeout(function() {
-                   console.log("Initializing after timeout...");
-                   // Initially select day 0 (this will create the chart)
-                   selectDay(0);
-               }, 100);
-           });
+                // Initialize charts after a delay to ensure DOM is ready
+                setTimeout(function() {
+                    console.log("Initializing temperature charts...");
+                    $(document).trigger('daySelected', [0]);
+                }, 500);
+            });
 </script>
         """
-        )
         self.js = javascript
 
 

@@ -260,13 +260,13 @@ class TestDayPickerFixes:
             self.errors.append("daySelected event handling not found")
             print("   ✗ daySelected event handling not found")
 
-        # Check for chart initialization
-        if "initializeCharts" in self.forecast_html:
-            self.successes.append("Chart initialization code found")
-            print("   ✓ Chart initialization code found")
+        # Check for chart script inclusion
+        if "temperature-chart.js" in self.forecast_html:
+            self.successes.append("Chart script is included")
+            print("   ✓ Chart script is included")
         else:
-            self.errors.append("Chart initialization code not found")
-            print("   ✗ Chart initialization code not found")
+            self.errors.append("Chart script not included")
+            print("   ✗ Chart script not included")
 
     def test_hourly_data_availability(self):
         """Test that real hourly data is available for charts."""

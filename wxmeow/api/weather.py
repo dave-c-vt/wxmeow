@@ -1,7 +1,7 @@
 import traceback
 import math
 from datetime import datetime
-from flask import jsonify, request
+from flask import jsonify, request, current_app
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError
 import json
 
@@ -168,20 +168,23 @@ def get_weather(location: str):
                             f"Missing time value in hourly item, using current time"
                         )
 
+                    # Get precipitation from either field
+                    precip = item.get("precip")
+                    if precip is None:
+                        precip = item.get("precipitation")
+
                     hourly_item = {
                         "time": time_value,
                         "temperature": temp,
                         "temp": temp,  # Include both for compatibility
                         "condition": item.get("condition", ""),
-                        "precipitation": item.get("precip", None),
+                        "precipitation": precip,
+                        "precip": precip,  # Include both for compatibility
                         "wind": {
-                            "speed": item.get("windSpeed", None)
-                            or item.get("wind_speed", None),
-                            "direction": item.get("windDir", None)
-                            or item.get("wind_direction", None),
+                            "speed": item.get("windSpeed", None),
+                            "direction": item.get("windDir", None),
                         },
                         "icon": item.get("icon", ""),
-                        "day": item.get("day", None),  # Include day index if available
                     }
                     hourly_data.append(hourly_item)
 
@@ -225,17 +228,29 @@ def get_weather(location: str):
                             )
                             condition = conditions[condition_index]
 
+                            # Generate precipitation chance based on condition and time
+                            precip_chance = 0
+                            if condition == "Rain":
+                                precip_chance = 60 + (hour % 3) * 10
+                            elif condition == "Thunderstorms":
+                                precip_chance = 80 + (hour % 2) * 10
+                            elif condition == "Cloudy":
+                                precip_chance = 30 + (hour % 4) * 5
+                            elif condition == "Mostly Cloudy":
+                                precip_chance = 20 + (hour % 5) * 3
+                            elif condition == "Partly Cloudy":
+                                precip_chance = 10 + (hour % 6) * 2
+                            else:  # Clear
+                                precip_chance = 0
+
                             hourly_data.append(
                                 {
                                     "time": hour_time.isoformat(),
                                     "temperature": dummy_temp,
                                     "temp": dummy_temp,
                                     "condition": condition,
-                                    "precipitation": round(
-                                        0.1 * (condition_index - 2), 1
-                                    )
-                                    if condition_index > 2
-                                    else 0,
+                                    "precipitation": precip_chance,
+                                    "precip": precip_chance,
                                     "wind": {
                                         "speed": f"{5 + (day * 2)} mph",
                                         "direction": [
@@ -304,7 +319,7 @@ def get_weather(location: str):
                 logger.debug(traceback.format_exc())
 
         # Add debug information in development mode
-        if app.debug:
+        if current_app.debug:
             weather_data["_debug"] = {
                 "hourly_count": len(weather_data.get("hourly_forecast", []))
                 if isinstance(weather_data.get("hourly_forecast"), list)
