@@ -499,17 +499,17 @@ document.addEventListener("DOMContentLoaded", function () {
       return [];
     }
 
-    console.debug("[DEBUG] Target date:", targetDate);
-    console.debug(`[DEBUG] User timezone: ${userTimezone}`);
-    console.debug("[DEBUG] Target date in local timezone:", targetDateLocal);
-    console.debug("[DEBUG] First hourly data item:", hourlyData[0]);
-
     // Use local timezone for consistent date comparison
     const targetDateLocal = new Date(
       targetDate.getFullYear(),
       targetDate.getMonth(),
       targetDate.getDate(),
     );
+
+    console.debug("[DEBUG] Target date:", targetDate);
+    console.debug(`[DEBUG] User timezone: ${userTimezone}`);
+    console.debug("[DEBUG] Target date in local timezone:", targetDateLocal);
+    console.debug("[DEBUG] First hourly data item:", hourlyData[0]);
     const targetDateStr = targetDateLocal.toLocaleDateString("en-CA"); // YYYY-MM-DD format
     const targetDateDay = targetDate.getDate();
     const targetMonth = targetDate.getMonth() + 1; // JavaScript months are 0-indexed

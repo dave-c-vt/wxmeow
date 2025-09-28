@@ -121,6 +121,21 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    // Check if a chart already exists and is working
+    if (
+      chartContainer.querySelector("canvas") &&
+      !chartContainer.textContent.includes("No hourly data")
+    ) {
+      console.debug(
+        `[DEBUG] Chart already exists for day ${dayIndex}, skipping creation`,
+      );
+      return;
+    }
+
+    // Preserve scroll position to prevent page jumping
+    const currentScrollY = window.scrollY;
+    const currentScrollX = window.scrollX;
+
     // Show the container and ensure proper styling
     chartContainer.style.display = "block";
     chartContainer.style.width = "100%";
@@ -167,7 +182,21 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Filter hourly data for the selected date
+    console.debug("[DEBUG] About to filter hourly data:", {
+      dayIndex,
+      selectedDate,
+      hourlyDataLength: hourlyData ? hourlyData.length : 0,
+      hourlyDataSample: hourlyData ? hourlyData.slice(0, 2) : null,
+    });
     const filteredData = filterHourlyDataByDate(hourlyData, selectedDate);
+    console.debug("[DEBUG] After filtering:", {
+      filteredDataLength: filteredData ? filteredData.length : 0,
+      filteredDataSample: filteredData ? filteredData.slice(0, 2) : null,
+    });
+    console.debug("[DEBUG] Returned filteredData is:", filteredData);
+    console.debug(
+      `[DEBUG] About to check if ${filteredData ? filteredData.length : "null"} === 0`,
+    );
     console.log(
       `Day ${dayIndex} (${selectedDate.toDateString()}): Found ${filteredData.length} hourly data points`,
     );
@@ -178,6 +207,11 @@ document.addEventListener("DOMContentLoaded", function () {
         `[WARNING] No hourly data points found for day ${dayIndex} (${selectedDate.toDateString()})`,
       );
       chartContainer.innerHTML = "<p>No hourly data available for this day</p>";
+
+      // Restore scroll position
+      if (typeof currentScrollY !== "undefined") {
+        setTimeout(() => window.scrollTo(currentScrollX, currentScrollY), 0);
+      }
       return;
     }
 
@@ -210,8 +244,39 @@ document.addEventListener("DOMContentLoaded", function () {
             : null,
         time: item.time,
         condition: item.condition || "",
+        precipitation: item.precipitation || 0,
       };
     });
+
+    // Find highest and lowest temperatures
+    const validTemps = chartData.filter(
+      (item) => item.y !== null && item.y !== undefined,
+    );
+    let highTemp = null,
+      lowTemp = null,
+      highIndex = -1,
+      lowIndex = -1;
+
+    if (validTemps.length > 0) {
+      highTemp = Math.max(...validTemps.map((item) => item.y));
+      lowTemp = Math.min(...validTemps.map((item) => item.y));
+
+      // Find indices of high/low temps in chartData
+      highIndex = chartData.findIndex((item) => item.y === highTemp);
+      lowIndex = chartData.findIndex((item) => item.y === lowTemp);
+    }
+
+    // Add sunrise/sunset times (approximate based on season/location)
+    const today = new Date();
+    const dayOfYear = Math.floor(
+      (today - new Date(today.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24),
+    );
+
+    // Rough sunrise/sunset calculation (can be refined based on actual location)
+    const sunriseHour =
+      6 + Math.sin(((dayOfYear - 81) * 2 * Math.PI) / 365) * 1.5;
+    const sunsetHour =
+      18 - Math.sin(((dayOfYear - 81) * 2 * Math.PI) / 365) * 1.5;
 
     console.debug(
       `[DEBUG] Chart data prepared with ${chartData.length} points`,
@@ -263,15 +328,31 @@ document.addEventListener("DOMContentLoaded", function () {
               ? "rgba(255, 159, 64, 1)"
               : "rgba(66, 133, 244, 1)",
             borderWidth: 3,
-            pointBackgroundColor: isDarkMode()
-              ? "rgba(255, 159, 64, 1)"
-              : "rgba(66, 133, 244, 1)",
-            pointBorderColor: isDarkMode() ? "#333" : "#fff",
+            pointBackgroundColor: chartData.map((item, index) => {
+              // Highlight high/low temperature points
+              if (index === highIndex) return "rgba(255, 99, 132, 1)"; // Red for high
+              if (index === lowIndex) return "rgba(54, 162, 235, 1)"; // Blue for low
+              return isDarkMode()
+                ? "rgba(255, 159, 64, 1)"
+                : "rgba(66, 133, 244, 1)";
+            }),
+            pointBorderColor: chartData.map((item, index) => {
+              if (index === highIndex || index === lowIndex) return "#fff";
+              return isDarkMode() ? "#333" : "#fff";
+            }),
+            pointRadius: chartData.map((item, index) => {
+              // Make high/low points larger
+              if (index === highIndex || index === lowIndex) return 8;
+              return 4;
+            }),
+            pointBorderWidth: chartData.map((item, index) => {
+              if (index === highIndex || index === lowIndex) return 3;
+              return 1;
+            }),
             pointHoverBackgroundColor: isDarkMode() ? "#333" : "#fff",
             pointHoverBorderColor: isDarkMode()
               ? "rgba(255, 159, 64, 1)"
               : "rgba(66, 133, 244, 1)",
-            pointRadius: 4,
             pointHoverRadius: 7,
             tension: 0.4,
             fill: true,
@@ -285,7 +366,7 @@ document.addEventListener("DOMContentLoaded", function () {
           padding: {
             left: 40,
             right: 10,
-            top: 20,
+            top: 50,
             bottom: 10,
           },
         },
@@ -319,120 +400,125 @@ document.addEventListener("DOMContentLoaded", function () {
                 const dataPoint = context.raw;
                 const temp = dataPoint.y;
                 const condition = dataPoint.condition || "Unknown";
+                const precipitation = dataPoint.precipitation || 0;
+                const index = context.dataIndex;
 
                 // Handle null/missing temperature data
                 if (temp === null || temp === undefined) {
                   return [
                     `Temperature: No data available`,
                     `Condition: ${condition}`,
+                    `Precipitation: ${precipitation}%`,
                   ];
                 }
 
                 const formattedTemp = `${temp}°F`;
+                let tempLabel = `Temperature: ${formattedTemp}`;
+
+                // Add HIGH/LOW indicators
+                if (index === highIndex) {
+                  tempLabel += " (HIGH)";
+                } else if (index === lowIndex) {
+                  tempLabel += " (LOW)";
+                }
+
                 return [
-                  `Temperature: ${formattedTemp}`,
+                  tempLabel,
                   `Condition: ${condition}`,
+                  `Precipitation: ${precipitation}%`,
                 ];
               },
               title: function (tooltipItems) {
-                // Format the time in a more readable way
+                // Format the time with date in a more readable way
                 try {
                   const dataPoint = tooltipItems[0].raw;
                   const date = new Date(dataPoint.time);
-                  return date.toLocaleTimeString([], {
-                    weekday: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+                  return date
+                    .toLocaleString([], {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    })
+                    .toUpperCase();
                 } catch (e) {
-                  const hour = tooltipItems[0].raw.x;
-                  if (hour === 0) return "12:00 AM";
-                  if (hour === 12) return "12:00 PM";
-                  if (hour < 12) return `${hour}:00 AM`;
-                  return `${hour - 12}:00 PM`;
+                  console.debug("[DEBUG] Error formatting tooltip title:", e);
+                  return `${tooltipItems[0].label || "N/A"}`;
                 }
               },
             },
           },
-          title: {
-            display: true,
-            text: `Hourly Temperature - ${formatDate(selectedDate)}`,
-            color: isDarkMode() ? "#e0e0e0" : "#333333",
-            font: {
-              size: 16,
-            },
-          },
         },
         scales: {
-          y: {
-            beginAtZero: false,
+          x: {
+            type: "linear",
+            position: "bottom",
+            min: 0,
+            max: 23,
             title: {
               display: true,
-              text: "Temperature (°F)",
+              text: "Hour of Day",
+              font: {
+                family: "Arial",
+                size: 12,
+                weight: "bold",
+              },
               color: isDarkMode() ? "#e0e0e0" : "#333333",
             },
             ticks: {
+              stepSize: 2,
               color: isDarkMode() ? "#e0e0e0" : "#333333",
+              font: {
+                family: "Arial",
+                size: 11,
+              },
+              callback: function (value, index, values) {
+                const hour = Math.round(value);
+                if (hour === 0) return "12 AM";
+                if (hour < 12) return `${hour} AM`;
+                if (hour === 12) return "12 PM";
+                return `${hour - 12} PM`;
+              },
             },
             grid: {
               color: isDarkMode()
                 ? "rgba(255, 255, 255, 0.1)"
                 : "rgba(0, 0, 0, 0.1)",
+              lineWidth: function (context) {
+                const value = context.tick.value;
+                if (value % 12 === 0) return 2;
+                if (value % 6 === 0) return 1.5;
+                return 1;
+              },
             },
           },
-          x: {
+          y: {
             title: {
               display: true,
-              text: "Time of Day",
+              text: "Temperature (°F)",
+              font: {
+                family: "Arial",
+                size: 12,
+                weight: "bold",
+              },
               color: isDarkMode() ? "#e0e0e0" : "#333333",
             },
-            type: "linear",
-            position: "bottom",
-            min: -0.5,
-            max: 23.5,
             ticks: {
               color: isDarkMode() ? "#e0e0e0" : "#333333",
-              stepSize: 2,
-              callback: function (value) {
-                // Show key hours with special formatting
-                if (value === 0) return "12 AM";
-                if (value === 6) return "6 AM";
-                if (value === 12) return "🌞 12 PM";
-                if (value === 18) return "6 PM";
-                if (value % 2 === 0) {
-                  // Format other even hours
-                  if (value < 12) return `${value} AM`;
-                  if (value > 12) return `${value - 12} PM`;
-                }
-                return "";
+              font: {
+                family: "Arial",
+                size: 11,
               },
             },
             grid: {
-              display: true,
-              drawOnChartArea: true,
-              color: function (context) {
-                const value = context.tick.value;
-                // Emphasize noon grid line
-                if (value === 12) {
-                  return isDarkMode()
-                    ? "rgba(255, 159, 64, 0.5)"
-                    : "rgba(66, 133, 244, 0.5)";
-                }
-                // Show grid lines for every 6 hours
-                if (value % 6 === 0) {
-                  return isDarkMode()
-                    ? "rgba(255, 255, 255, 0.2)"
-                    : "rgba(0, 0, 0, 0.2)";
-                }
-                return isDarkMode()
-                  ? "rgba(255, 255, 255, 0.05)"
-                  : "rgba(0, 0, 0, 0.05)";
-              },
+              color: isDarkMode()
+                ? "rgba(255, 255, 255, 0.1)"
+                : "rgba(0, 0, 0, 0.1)",
               lineWidth: function (context) {
                 const value = context.tick.value;
-                // Make noon grid line thicker
-                if (value === 12) return 3;
-                // Make 6-hour marks slightly thicker
+                if (value % 12 === 0) return 2;
                 if (value % 6 === 0) return 1.5;
                 return 1;
               },
@@ -442,12 +528,106 @@ document.addEventListener("DOMContentLoaded", function () {
       },
     });
 
+    // Wait for chart to render, then add custom annotations
+    setTimeout(() => {
+      const ctx = currentChart.ctx;
+      const yAxis = currentChart.scales.y;
+      const xAxis = currentChart.scales.x;
+
+      // Draw sunrise line
+      if (sunriseHour >= 0 && sunriseHour <= 23) {
+        const sunriseX = xAxis.getPixelForValue(sunriseHour);
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 193, 7, 0.8)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(sunriseX, yAxis.top);
+        ctx.lineTo(sunriseX, yAxis.bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Sunrise label
+        ctx.fillStyle = "rgba(255, 193, 7, 1)";
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("🌅 SUNRISE", sunriseX, yAxis.top - 10);
+        ctx.restore();
+      }
+
+      // Draw sunset line
+      if (sunsetHour >= 0 && sunsetHour <= 23) {
+        const sunsetX = xAxis.getPixelForValue(sunsetHour);
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 87, 34, 0.8)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(sunsetX, yAxis.top);
+        ctx.lineTo(sunsetX, yAxis.bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Sunset label
+        ctx.fillStyle = "rgba(255, 87, 34, 1)";
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("🌇 SUNSET", sunsetX, yAxis.top - 10);
+        ctx.restore();
+      }
+
+      // Draw high temperature label
+      if (highIndex >= 0 && validTemps.length > 0) {
+        const highPoint = chartData[highIndex];
+        const highX = xAxis.getPixelForValue(highPoint.x);
+        const highY = yAxis.getPixelForValue(highPoint.y);
+
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 99, 132, 1)";
+        ctx.font = "bold 16px Arial";
+        ctx.textAlign = "center";
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 3;
+        ctx.strokeText(`${highTemp}°F`, highX, highY - 20);
+        ctx.fillText(`${highTemp}°F`, highX, highY - 20);
+        ctx.font = "bold 12px Arial";
+        ctx.strokeText("HIGH", highX, highY - 35);
+        ctx.fillText("HIGH", highX, highY - 35);
+        ctx.restore();
+      }
+
+      // Draw low temperature label
+      if (lowIndex >= 0 && validTemps.length > 0) {
+        const lowPoint = chartData[lowIndex];
+        const lowX = xAxis.getPixelForValue(lowPoint.x);
+        const lowY = yAxis.getPixelForValue(lowPoint.y);
+
+        ctx.save();
+        ctx.fillStyle = "rgba(54, 162, 235, 1)";
+        ctx.font = "bold 16px Arial";
+        ctx.textAlign = "center";
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 3;
+        ctx.strokeText(`${lowTemp}°F`, lowX, lowY + 30);
+        ctx.fillText(`${lowTemp}°F`, lowX, lowY + 30);
+        ctx.font = "bold 12px Arial";
+        ctx.strokeText("LOW", lowX, lowY + 45);
+        ctx.fillText("LOW", lowX, lowY + 45);
+        ctx.restore();
+      }
+    }, 100);
+
     // Make sure the chart displays correctly
     canvas.style.height = "300px";
     canvas.style.width = "100%";
 
     // Store the chart reference
     charts[dayIndex] = currentChart;
+
+    // Restore scroll position to prevent page jumping
+    if (typeof currentScrollY !== "undefined") {
+      setTimeout(() => window.scrollTo(currentScrollX, currentScrollY), 0);
+    }
   }
 
   // Helper function to get the date for the selected day index in local timezone
@@ -495,122 +675,167 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Filter hourly data by date (matching just the date portion)
   function filterHourlyDataByDate(hourlyData, targetDate) {
-    if (!hourlyData || hourlyData.length === 0) {
-      return [];
-    }
+    try {
+      if (!hourlyData || hourlyData.length === 0) {
+        return [];
+      }
 
-    console.debug("[DEBUG] Target date:", targetDate);
-    console.debug(`[DEBUG] User timezone: ${userTimezone}`);
-    console.debug("[DEBUG] Target date in local timezone:", targetDateLocal);
-    console.debug("[DEBUG] First hourly data item:", hourlyData[0]);
+      // Use local timezone for consistent date comparison
+      const targetDateLocal = new Date(
+        targetDate.getFullYear(),
+        targetDate.getMonth(),
+        targetDate.getDate(),
+      );
 
-    // Use local timezone for consistent date comparison
-    const targetDateLocal = new Date(
-      targetDate.getFullYear(),
-      targetDate.getMonth(),
-      targetDate.getDate(),
-    );
-    const targetDateStr = targetDateLocal.toLocaleDateString("en-CA"); // YYYY-MM-DD format
-    const targetDateDay = targetDate.getDate();
-    const targetMonth = targetDate.getMonth() + 1; // JavaScript months are 0-indexed
+      const targetDateStr = targetDateLocal.toLocaleDateString("en-CA"); // YYYY-MM-DD format
 
-    // Filter data by comparing dates in local timezone
-    let filteredData = hourlyData.filter((item) => {
-      try {
-        if (!item.time) return false;
+      console.debug("[DEBUG] Target date:", targetDate);
+      console.debug(`[DEBUG] User timezone: ${userTimezone}`);
+      console.debug("[DEBUG] Target date in local timezone:", targetDateLocal);
+      console.debug("[DEBUG] Target date string:", targetDateStr);
+      console.debug("[DEBUG] Total hourly data items:", hourlyData.length);
+      console.debug(
+        "[DEBUG] First few hourly data items:",
+        hourlyData.slice(0, 3),
+      );
+      const targetDateDay = targetDate.getDate();
+      const targetMonth = targetDate.getMonth() + 1; // JavaScript months are 0-indexed
 
-        // Parse the date from the time field - assume it might be UTC
-        const itemDate = new Date(item.time);
+      // Filter data by comparing dates in local timezone
+      console.debug("[DEBUG] About to start filtering with .filter() method");
+      let filteredData = hourlyData.filter((item) => {
+        try {
+          if (!item.time) return false;
 
-        // Check if it's a valid date
-        if (isNaN(itemDate.getTime())) {
-          console.debug("[DEBUG] Invalid date:", item.time);
+          // Parse the date from the time field - assume it might be UTC
+          const itemDate = new Date(item.time);
+
+          // Check if it's a valid date
+          if (isNaN(itemDate.getTime())) {
+            console.debug("[DEBUG] Invalid date:", item.time);
+            return false;
+          }
+
+          // Convert to local timezone for comparison
+          const localItemDate = new Date(
+            itemDate.toLocaleString("en-US", { timeZone: userTimezone }),
+          );
+
+          // Create date strings for comparison (local timezone)
+          const itemDateStr = localItemDate.toLocaleDateString("en-CA"); // YYYY-MM-DD format
+          const matchesDateStr = itemDateStr === targetDateStr;
+
+          // Compare by day and month as fallback (in local timezone)
+          const matchesDay =
+            localItemDate.getDate() === targetDateDay &&
+            localItemDate.getMonth() + 1 === targetMonth;
+
+          // Only log matches to reduce console spam
+          if (matchesDateStr || matchesDay) {
+            console.debug(
+              `[DEBUG] MATCH: ${item.time}, Item date str: ${itemDateStr}, Target: ${targetDateStr}`,
+            );
+          }
+
+          return matchesDateStr || matchesDay;
+        } catch (e) {
+          console.debug("[DEBUG] Error parsing date:", e, item);
           return false;
         }
+      });
 
-        // Convert to local timezone for comparison
-        const localItemDate = new Date(
-          itemDate.toLocaleString("en-US", { timeZone: userTimezone }),
-        );
+      console.debug("[DEBUG] Filter method completed successfully");
+      console.debug(
+        `[DEBUG] Filtered ${filteredData.length} items for ${targetDateStr}`,
+      );
+      console.debug("[DEBUG] Filtered data items:", filteredData);
 
-        // Create date strings for comparison (local timezone)
-        const itemDateStr = localItemDate.toLocaleDateString("en-CA"); // YYYY-MM-DD format
-        const matchesDateStr = itemDateStr === targetDateStr;
-
-        // Compare by day and month as fallback (in local timezone)
-        const matchesDay =
-          localItemDate.getDate() === targetDateDay &&
-          localItemDate.getMonth() + 1 === targetMonth;
-
+      if (filteredData.length === 0) {
         console.debug(
-          `[DEBUG] Item time: ${item.time}, Local time: ${localItemDate.toISOString()}, Target: ${targetDateStr}, Matches: ${matchesDateStr || matchesDay}`,
+          "[DEBUG] No data found after filtering - checking sample dates:",
+        );
+        hourlyData.slice(0, 5).forEach((item, index) => {
+          if (item.time) {
+            const itemDate = new Date(item.time);
+            const localItemDate = new Date(
+              itemDate.toLocaleString("en-US", { timeZone: userTimezone }),
+            );
+            const itemDateStr = localItemDate.toLocaleDateString("en-CA");
+            console.debug(
+              `[DEBUG] Sample ${index}: ${item.time} -> ${itemDateStr} (target: ${targetDateStr})`,
+            );
+          }
+        });
+      }
+
+      // If we got results, ensure they're sorted by time and fill gaps for 24-hour coverage
+      if (filteredData.length > 0) {
+        console.debug(
+          `[DEBUG] Successfully filtered ${filteredData.length} data points for date ${targetDateStr}`,
         );
 
-        return matchesDateStr || matchesDay;
-      } catch (e) {
-        console.debug("[DEBUG] Error parsing date:", e, item);
+        // Sort by time to ensure proper order
+        filteredData.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+        // Ensure we have 24-hour coverage centered around noon
+        console.debug(
+          "[DEBUG] About to call ensureFullDayCoverage with filtered data:",
+          filteredData,
+        );
+        const fullDayData = ensureFullDayCoverage(filteredData, targetDate);
+        console.debug("[DEBUG] ensureFullDayCoverage returned:", fullDayData);
+        console.debug(
+          `[DEBUG] Returning ${fullDayData ? fullDayData.length : "null"} data points to chart function`,
+        );
+        return fullDayData;
+      }
+
+      // Find the day of the week for our target date (0=Sunday, 1=Monday, etc)
+      const targetDayOfWeek = targetDate.getDay();
+
+      // Second attempt: try to find items with a "dayOfWeek" property matching our target
+      filteredData = hourlyData.filter((item) => {
+        if (item.dayOfWeek !== undefined) {
+          return parseInt(item.dayOfWeek) === targetDayOfWeek;
+        }
         return false;
+      });
+
+      if (filteredData.length > 0) {
+        return ensureFullDayCoverage(filteredData, targetDate);
       }
-    });
 
-    console.debug(
-      `[DEBUG] Filtered ${filteredData.length} items for ${targetDateStr}`,
-    );
-
-    // If we got results, ensure they're sorted by time and fill gaps for 24-hour coverage
-    if (filteredData.length > 0) {
-      console.debug(
-        `[DEBUG] Successfully filtered ${filteredData.length} data points for date ${targetDateStr}`,
-      );
-
-      // Sort by time to ensure proper order
-      filteredData.sort((a, b) => new Date(a.time) - new Date(b.time));
-
-      // Ensure we have 24-hour coverage centered around noon
-      return ensureFullDayCoverage(filteredData, targetDate);
-    }
-
-    // Find the day of the week for our target date (0=Sunday, 1=Monday, etc)
-    const targetDayOfWeek = targetDate.getDay();
-
-    // Second attempt: try to find items with a "dayOfWeek" property matching our target
-    filteredData = hourlyData.filter((item) => {
-      if (item.dayOfWeek !== undefined) {
-        return parseInt(item.dayOfWeek) === targetDayOfWeek;
+      // Third attempt: if we're showing today (day 0), show the first 24 hours of data
+      const localToday = new Date();
+      const todayStr = localToday.toLocaleDateString("en-CA");
+      if (targetDateStr === todayStr) {
+        console.debug(`[DEBUG] Showing today's data (${todayStr})`);
+        const dayData = hourlyData.slice(0, Math.min(24, hourlyData.length));
+        return ensureFullDayCoverage(dayData, targetDate);
       }
-      return false;
-    });
 
-    if (filteredData.length > 0) {
-      return ensureFullDayCoverage(filteredData, targetDate);
-    }
-
-    // Third attempt: if we're showing today (day 0), show the first 24 hours of data
-    const localToday = new Date();
-    const todayStr = localToday.toLocaleDateString("en-CA");
-    if (targetDateStr === todayStr) {
-      console.debug(`[DEBUG] Showing today's data (${todayStr})`);
-      const dayData = hourlyData.slice(0, Math.min(24, hourlyData.length));
-      return ensureFullDayCoverage(dayData, targetDate);
-    }
-
-    // Fourth attempt: if we're showing day N, show hours (N*24) through ((N+1)*24)
-    // But first convert all times to local timezone to find the right slice
-    const dayDiff = Math.floor(
-      (targetDate - localToday) / (24 * 60 * 60 * 1000),
-    );
-    if (dayDiff >= 0 && dayDiff < 5) {
-      console.debug(
-        `[DEBUG] Attempting day offset method for day difference: ${dayDiff}`,
+      // Fourth attempt: if we're showing day N, show hours (N*24) through ((N+1)*24)
+      // But first convert all times to local timezone to find the right slice
+      const dayDiff = Math.floor(
+        (targetDate - localToday) / (24 * 60 * 60 * 1000),
       );
-      const startIndex = Math.min(dayDiff * 24, hourlyData.length - 1);
-      const endIndex = Math.min(startIndex + 24, hourlyData.length);
-      const dayData = hourlyData.slice(startIndex, endIndex);
-      return ensureFullDayCoverage(dayData, targetDate);
-    }
+      if (dayDiff >= 0 && dayDiff < 5) {
+        console.debug(
+          `[DEBUG] Attempting day offset method for day difference: ${dayDiff}`,
+        );
+        const startIndex = Math.min(dayDiff * 24, hourlyData.length - 1);
+        const endIndex = Math.min(startIndex + 24, hourlyData.length);
+        const dayData = hourlyData.slice(startIndex, endIndex);
+        return ensureFullDayCoverage(dayData, targetDate);
+      }
 
-    // If all else fails, return empty array
-    return [];
+      // If all else fails, return empty array
+      return [];
+    } catch (error) {
+      console.error("[ERROR] Exception in filterHourlyDataByDate:", error);
+      console.error("[ERROR] Stack trace:", error.stack);
+      return [];
+    }
   }
 
   // Helper function to ensure 24-hour coverage with noon centered in local timezone
@@ -650,6 +875,9 @@ document.addEventListener("DOMContentLoaded", function () {
           if (!item.time) return false;
           const itemDate = new Date(item.time);
           const itemHour = itemDate.getHours();
+          console.debug(
+            `[DEBUG] Hour ${hour}: Checking item ${item.time} -> itemHour: ${itemHour}, looking for hour: ${hour}, match: ${itemHour === hour}`,
+          );
           return itemHour === hour;
         });
       }
@@ -660,9 +888,10 @@ document.addEventListener("DOMContentLoaded", function () {
           time: hourDate.toISOString(),
           temperature: existingData.temperature,
           condition: existingData.condition || "Clear",
+          precipitation: existingData.precipitation || 0,
         });
         console.debug(
-          `[DEBUG] Hour ${hour}: using existing data (${existingData.temperature}°F)`,
+          `[DEBUG] Hour ${hour}: using existing data (${existingData.temperature}°F, ${existingData.precipitation}% precip)`,
         );
       } else {
         // Create realistic placeholder data
@@ -675,9 +904,10 @@ document.addEventListener("DOMContentLoaded", function () {
           time: hourDate.toISOString(),
           temperature: temperature,
           condition: "Forecast Unavailable",
+          precipitation: 0,
         });
         console.debug(
-          `[DEBUG] Hour ${hour}: created placeholder (${temperature}°F)`,
+          `[DEBUG] Hour ${hour}: created placeholder (${temperature}°F, 0% precip)`,
         );
       }
     }

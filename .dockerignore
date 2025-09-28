@@ -52,7 +52,6 @@ ehthumbs.db
 # Environment and secrets
 .env
 .env.*
-.flaskenv
 secrets.env
 *.key
 *.pem

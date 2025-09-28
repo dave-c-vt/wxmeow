@@ -85,14 +85,18 @@ services:
   healthcheck:
     image: alpine:latest
     container_name: ${CONTAINER_NAME:-wxmeow-app}-monitor
+    environment:
+      - HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-30}
+      - INTERNAL_PORT=${INTERNAL_PORT:-5000}
+      - HEALTH_CHECK_PATH=${HEALTH_CHECK_PATH:-/health}
     command: >
-      sh -c "
+      sh -c '
         while true; do
-          sleep ${HEALTH_CHECK_INTERVAL:-30};
-          wget -q --spider http://wxmeow:${INTERNAL_PORT:-5000}${HEALTH_CHECK_PATH:-/health} ||
-          echo \"$(date): wxmeow health check failed\" >> /var/log/wxmeow-monitor.log;
+          sleep $${HEALTH_CHECK_INTERVAL:-30};
+          wget -q --spider http://wxmeow:$${INTERNAL_PORT:-5000}$${HEALTH_CHECK_PATH:-/health} ||
+          echo "$$(date): wxmeow health check failed" >> /var/log/wxmeow-monitor.log;
         done
-      "
+      '
     volumes:
       - wxmeow_logs:/var/log
     depends_on:

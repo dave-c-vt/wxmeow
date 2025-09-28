@@ -271,8 +271,8 @@ class wxmeow:
                     # Use placeholder for empty images
                     weather_emoji = "⚡"
 
-                # Simplified click handler
-                onclick_handler = f"selectDay({i}); return false;"
+                # Prevent default action explicitly to avoid page jumping
+                onclick_handler = f"selectDay({i}, event); return false;"
 
                 futurepics += (
                     td_style
@@ -290,7 +290,7 @@ class wxmeow:
                 logger.warning(
                     f"Error generating forecast icon HTML for day {i}: {str(e)}"
                 )
-                onclick_handler = f"selectDay({i}); return false;"
+                onclick_handler = f"selectDay({i}, event); return false;"
                 td_style = tdc if i >= 3 else td[0]
                 futurepics += (
                     td_style
@@ -1014,8 +1014,18 @@ table {
           }
 
           // Global function for day selection
-          function selectDay(dayIndex) {
+          function selectDay(dayIndex, event) {
               console.log("Selecting day:", dayIndex);
+
+              // Prevent any default browser behavior
+              if (event) {
+                  event.preventDefault();
+                  event.stopPropagation();
+              }
+
+              // Preserve scroll position to prevent page jumping
+              const currentScrollY = window.scrollY;
+              const currentScrollX = window.scrollX;
 
               // Hide all chart containers first
               $("[id^='hourly-temperature-chart-']").hide();
@@ -1036,6 +1046,11 @@ table {
 
               // Create chart for selected day
               createTemperatureChart(dayIndex);
+
+              // Restore scroll position after a brief delay to prevent jumping
+              setTimeout(function() {
+                  window.scrollTo(currentScrollX, currentScrollY);
+              }, 10);
           }
 
           $(document).ready(function(){
