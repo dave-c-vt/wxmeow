@@ -1,0 +1,3 @@
+# This file ensures the backups directory is preserved in git
+# Backup files will be stored here but are excluded from version control
+# Directory: backups/

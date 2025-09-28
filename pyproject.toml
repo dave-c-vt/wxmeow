@@ -1,0 +1,214 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wxmeow"
+version = "0.3.0"
+description = "A Flask weather application with a cute cat theme"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "wxmeow contributors"},
+]
+keywords = ["weather", "flask", "web-app", "noaa", "cat-themed"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+dependencies = [
+    "flask>=2.0.0",
+    "flask-wtf>=1.0.0",
+    "python-dotenv>=0.19.0",
+    "requests>=2.25.0",
+    "wtforms>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "pytest-timeout>=2.1.0",
+    "pytest-html>=3.1.0",
+    "pytest-xdist>=3.0.0",
+    "pytest-flask>=1.2.0",
+    "flask-testing>=0.8.1",
+    "requests>=2.28.0",
+    "responses>=0.23.0",
+    "beautifulsoup4>=4.11.0",
+    "lxml>=4.9.0",
+    "selenium>=4.8.0",
+    "mock>=4.0.0",
+    "faker>=18.0.0",
+    "coverage[toml]>=7.0.0",
+    "flake8>=6.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.0.0",
+    "locust>=2.14.0",
+    "factory-boy>=3.2.0",
+    "pytest-postgresql>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    "python-dotenv>=1.0.0",
+    "pytest-env>=0.8.0",
+]
+security = [
+    "safety>=2.3.0",
+    "bandit[toml]>=1.7.0",
+]
+production = [
+    "gunicorn>=20.1.0",
+    "gevent>=22.10.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/dave-c-vt/wxmeow"
+"Bug Reports" = "https://github.com/dave-c-vt/wxmeow/issues"
+"Source" = "https://github.com/dave-c-vt/wxmeow"
+"Documentation" = "https://github.com/dave-c-vt/wxmeow#readme"
+
+[project.scripts]
+wxmeow = "wxmeow.__main__:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["wxmeow*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+wxmeow = [
+    "static/**/*",
+    "templates/**/*",
+    "*.txt",
+    "*.md",
+    "*.yml",
+    "*.yaml",
+]
+
+# Black configuration
+[tool.black]
+line-length = 88
+target-version = ['py39', 'py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+# isort configuration
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["wxmeow"]
+skip = [".git", ".mypy_cache", ".venv", "_build", "buck-out", "build", "dist"]
+
+# mypy configuration
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+exclude = [
+    "^tests/.*$",
+    "^build/.*$",
+    "^dist/.*$",
+]
+
+# pytest configuration
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=wxmeow",
+    "--cov-report=html:htmlcov",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*", "*Test"]
+python_functions = ["test_*"]
+markers = [
+    "unit: Unit tests that test individual components in isolation",
+    "integration: Integration tests that test component interactions",
+    "functional: Functional tests that test complete user workflows",
+    "slow: Tests that take more than 5 seconds to run",
+    "external: Tests that require external services or APIs",
+    "chart: Tests related to weather chart functionality",
+    "api: Tests for API endpoints",
+    "web: Tests for web interface functionality",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::UserWarning:urllib3.*",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+branch = true
+source = ["wxmeow"]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "test_*.py",
+    "*_test.py",
+    "setup.py",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+# Bandit security configuration
+[tool.bandit]
+exclude_dirs = ["tests", "test_*"]
+skips = ["B101", "B601"]
+
+[tool.bandit.assert_used]
+skips = ["*_test.py", "*/test_*.py"]

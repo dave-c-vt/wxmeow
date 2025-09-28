@@ -1,0 +1,49 @@
+# Testing framework and utilities
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+pytest-timeout>=2.1.0
+pytest-html>=3.1.0
+pytest-xdist>=3.0.0
+
+# Flask testing utilities
+pytest-flask>=1.2.0
+flask-testing>=0.8.1
+
+# HTTP testing
+requests>=2.28.0
+responses>=0.23.0
+
+# HTML parsing and web testing
+beautifulsoup4>=4.11.0
+lxml>=4.9.0
+selenium>=4.8.0
+
+# Mocking and test doubles
+mock>=4.0.0
+faker>=18.0.0
+
+# Coverage reporting
+coverage[toml]>=7.0.0
+
+# Code quality tools for CI
+flake8>=6.0.0
+black>=23.0.0
+isort>=5.12.0
+mypy>=1.0.0
+
+# Performance and load testing
+locust>=2.14.0
+
+# Test data generation
+factory-boy>=3.2.0
+
+# Database testing (if needed)
+pytest-postgresql>=4.1.0
+
+# Async testing support
+pytest-asyncio>=0.21.0
+
+# Environment and configuration testing
+python-dotenv>=1.0.0
+pytest-env>=0.8.0

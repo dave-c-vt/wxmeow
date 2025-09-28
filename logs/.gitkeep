@@ -1,0 +1,3 @@
+# This file ensures the logs directory is preserved in git
+# Log files will be stored here but are excluded from version control
+# Directory: logs/
