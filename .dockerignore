@@ -1,0 +1,125 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+
+# Version control
+.git/
+.gitignore
+
+# Environment and secrets
+.env
+.env.*
+.flaskenv
+secrets.env
+*.key
+*.pem
+*.crt
+
+# Logs (keep directory structure but exclude log files)
+logs/*.log
+*.log
+log_*.log
+
+# Testing
+test_*.py
+test_*.html
+debug_*.py
+quick_test.py
+simple_test.py
+tests/manual/
+htmlcov/
+.coverage
+.pytest_cache/
+test-results*.xml
+.tox/
+.nox/
+
+# Development artifacts
+working_*.js
+working_*.py
+temp_*.py
+*.tmp
+*.temp
+
+# Docker related (exclude from image)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation and project files
+README.md
+*.md
+Makefile
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+backups/*
+
+# Cache and temporary directories
+.cache/
+temp/
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pytest
+.pytest_cache/
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
+*.cover
