@@ -18,7 +18,7 @@ from wxmeow import app
 def test_app_instance():
     """Test that the app instance was created successfully."""
     assert app is not None, "App instance not created"
-    print("✅ App instance created successfully")
+    print("[OK] App instance created successfully")
 
 
 def test_blueprint_registration():
@@ -30,7 +30,7 @@ def test_blueprint_registration():
     assert "views" in blueprint_names, "Views blueprint not registered"
     assert "api" in blueprint_names, "API blueprint not registered"
 
-    print("✅ Both blueprints registered successfully")
+    print("[OK] Both blueprints registered successfully")
 
 
 def test_routes():
@@ -50,7 +50,7 @@ def test_routes():
     assert view_routes_exist, "View routes not found"
     assert api_routes_exist, "API routes not found"
 
-    print("✅ Routes from both blueprints registered successfully")
+    print("[OK] Routes from both blueprints registered successfully")
 
 
 if __name__ == "__main__":
@@ -61,8 +61,8 @@ if __name__ == "__main__":
         test_blueprint_registration()
         test_routes()
         print(
-            "\n✨ All tests passed! The refactored app structure is working correctly."
+            "\nAll tests passed! The refactored app structure is working correctly."
         )
     except AssertionError as e:
-        print(f"\n❌ Test failed: {str(e)}")
+        print(f"\n[FAIL] Test failed: {str(e)}")
         sys.exit(1)

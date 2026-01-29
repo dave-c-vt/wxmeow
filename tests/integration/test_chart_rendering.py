@@ -24,12 +24,12 @@ class ChartRenderingTest:
     def log_success(self, message):
         """Log a successful test."""
         self.successes.append(message)
-        print(f"✅ {message}")
+        print(f"[OK] {message}")
 
     def log_error(self, message):
         """Log a test failure."""
         self.errors.append(message)
-        print(f"❌ {message}")
+        print(f"[FAIL] {message}")
 
     def test_weather_data_generation(self):
         """Test that weather data is properly generated."""
@@ -67,7 +67,7 @@ class ChartRenderingTest:
 
     def test_html_chart_containers(self):
         """Test that HTML contains proper chart containers."""
-        print("\n🏗️ TESTING HTML CHART CONTAINERS")
+        print("\n> TESTING HTML CHART CONTAINERS")
         print("-" * 50)
 
         if not self.weather_obj:
@@ -144,7 +144,7 @@ class ChartRenderingTest:
 
     def test_chart_initialization(self):
         """Test chart initialization JavaScript."""
-        print("\n⚙️ TESTING CHART INITIALIZATION")
+        print("\n> TESTING CHART INITIALIZATION")
         print("-" * 50)
 
         if not self.weather_obj:
@@ -175,7 +175,7 @@ class ChartRenderingTest:
 
     def test_day_selector_integration(self):
         """Test day selector button integration."""
-        print("\n🗓️ TESTING DAY SELECTOR INTEGRATION")
+        print("\n> TESTING DAY SELECTOR INTEGRATION")
         print("-" * 50)
 
         if not self.weather_obj:
@@ -201,7 +201,7 @@ class ChartRenderingTest:
 
     def test_responsive_chart_styling(self):
         """Test responsive chart styling."""
-        print("\n📱 TESTING RESPONSIVE CHART STYLING")
+        print("\n> TESTING RESPONSIVE CHART STYLING")
         print("-" * 50)
 
         if not self.weather_obj:
@@ -238,7 +238,7 @@ class ChartRenderingTest:
 
     def test_error_handling(self):
         """Test error handling in chart system."""
-        print("\n🚨 TESTING ERROR HANDLING")
+        print("\nTESTING ERROR HANDLING")
         print("-" * 50)
 
         if not self.weather_obj:
@@ -258,7 +258,7 @@ class ChartRenderingTest:
             self.log_success("Error fallback messages found")
         else:
             # This is not necessarily an error, just informational
-            print("ℹ️ No specific error fallback messages found")
+            print("i No specific error fallback messages found")
 
         return True
 
@@ -291,7 +291,7 @@ class ChartRenderingTest:
 
         # Final summary
         print("\n" + "=" * 60)
-        print("📊 TEST SUMMARY")
+        print("[*] TEST SUMMARY")
         print("=" * 60)
         print(f"Tests Passed: {passed}/{len(test_methods)}")
         print(f"Success Rate: {(passed / len(test_methods) * 100):.1f}%")
@@ -299,7 +299,7 @@ class ChartRenderingTest:
         print(f"Total Errors: {len(self.errors)}")
 
         if self.errors:
-            print("\n❌ ERRORS FOUND:")
+            print("\n[FAIL] ERRORS FOUND:")
             for error in self.errors:
                 print(f"   • {error}")
 
@@ -311,7 +311,7 @@ class ChartRenderingTest:
             print("   2. Verify network requests are successful")
             print("   3. Check that DOM elements are properly loaded")
         else:
-            print(f"\n⚠️ {len(test_methods) - passed} TESTS FAILED")
+            print(f"\n[WARN] {len(test_methods) - passed} TESTS FAILED")
             print("Chart rendering may be broken.")
 
         return passed == len(test_methods)

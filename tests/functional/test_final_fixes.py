@@ -31,7 +31,7 @@ class FinalFixesTest:
     def test_result(self, test_name, condition, details=""):
         """Record and display test result."""
         self.total_tests += 1
-        status = "✅ PASS" if condition else "❌ FAIL"
+        status = "[OK] PASS" if condition else "[FAIL] FAIL"
         print(f"{status}: {test_name}")
         if details:
             print(f"     {details}")
@@ -67,7 +67,7 @@ class FinalFixesTest:
 
     def test_no_page_jumping(self):
         """Test that clicking day buttons doesn't cause page jumping."""
-        print("\n🚫 TESTING NO PAGE JUMPING")
+        print("\nTESTING NO PAGE JUMPING")
         print("-" * 50)
 
         # Check that all onclick handlers include 'return false;'
@@ -101,7 +101,7 @@ class FinalFixesTest:
 
     def test_temperature_alignment(self):
         """Test that temperature values align with weather icons."""
-        print("\n🌡️ TESTING TEMPERATURE ALIGNMENT")
+        print("\n[*] TESTING TEMPERATURE ALIGNMENT")
         print("-" * 50)
 
         # Check that temperature values are present
@@ -164,7 +164,7 @@ class FinalFixesTest:
 
     def test_dual_axis_chart(self):
         """Test that charts display both temperature and precipitation data."""
-        print("\n📊 TESTING DUAL-AXIS CHART")
+        print("\n[*] TESTING DUAL-AXIS CHART")
         print("-" * 50)
 
         # Check for dual y-axis configuration
@@ -281,7 +281,7 @@ class FinalFixesTest:
 
     def create_browser_test(self):
         """Create a test HTML file for manual browser verification."""
-        print("\n🌐 CREATING BROWSER TEST FILE")
+        print("\nCREATING BROWSER TEST FILE")
         print("-" * 50)
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
@@ -322,9 +322,9 @@ class FinalFixesTest:
         try:
             self.weather_obj = wxmeow(self.test_location)
             self.html_content = self.weather_obj.futuremeow
-            print(f"✅ Weather data loaded: {len(self.html_content)} characters")
+            print(f"[OK] Weather data loaded: {len(self.html_content)} characters")
         except Exception as e:
-            print(f"❌ Failed to load weather data: {str(e)}")
+            print(f"[FAIL] Failed to load weather data: {str(e)}")
             return False
 
         # Run all test categories
@@ -344,7 +344,7 @@ class FinalFixesTest:
                 result = test_func()
                 category_results.append((category_name, result))
             except Exception as e:
-                print(f"❌ {category_name} failed with exception: {str(e)}")
+                print(f"[FAIL] {category_name} failed with exception: {str(e)}")
                 category_results.append((category_name, False))
 
         # Create browser test file
@@ -352,7 +352,7 @@ class FinalFixesTest:
 
         # Final summary
         print("\n" + "=" * 60)
-        print("📊 FINAL TEST SUMMARY")
+        print("[*] FINAL TEST SUMMARY")
         print("=" * 60)
 
         print(
@@ -362,7 +362,7 @@ class FinalFixesTest:
         print("\nCategory Results:")
         passed_categories = 0
         for category_name, result in category_results:
-            status = "✅ PASS" if result else "❌ FAIL"
+            status = "[OK] PASS" if result else "[FAIL] FAIL"
             print(f"  {status}: {category_name}")
             if result:
                 passed_categories += 1
@@ -379,7 +379,7 @@ class FinalFixesTest:
             print("  • Dual-axis charts with temperature & precipitation")
             print("  • Smooth day switching functionality")
         else:
-            print(f"\n⚠️ {len(category_results) - passed_categories} ISSUES REMAIN")
+            print(f"\n[WARN] {len(category_results) - passed_categories} ISSUES REMAIN")
             print("Some fixes may need additional work.")
 
         print(f"\n💡 Manual test file: {test_file}")

@@ -110,7 +110,7 @@ Examples:
     debug = args.debug or config.DEBUG
 
     # Print startup information
-    print(f"🐱 Starting wxmeow weather application")
+    print(f"Starting wxmeow weather application")
     print(f"   Environment: {config.FLASK_ENV}")
     print(f"   Host: {host}")
     print(f"   Port: {port}")
@@ -129,9 +129,9 @@ Examples:
             threaded=True,
         )
     except KeyboardInterrupt:
-        print("\n🛑 Application stopped by user")
+        print("\nApplication stopped by user")
     except Exception as e:
-        print(f"💥 Error running application: {e}")
+        print(f"Error running application: {e}")
         sys.exit(1)
 
 

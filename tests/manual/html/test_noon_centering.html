@@ -83,7 +83,7 @@
             <h3>Test Purpose</h3>
             <p>This page tests whether noon (12 PM) appears in the visual center of the 24-hour temperature chart.</p>
             <p>A red line shows the exact visual center of the chart area. If noon centering is working correctly,
-               the noon marker (🌞 12 PM) should be very close to this red center line.</p>
+               the noon marker (12 PM) should be very close to this red center line.</p>
         </div>
 
         <div class="chart-section">
@@ -130,8 +130,8 @@
 
         <div class="test-info">
             <h3>Expected Results</h3>
-            <p><strong>First chart (improved):</strong> The 🌞 12 PM marker should be very close to the red center line.</p>
-            <p><strong>Second chart (original):</strong> The 🌞 12 PM marker should appear slightly to the right of the red center line.</p>
+            <p><strong>First chart (improved):</strong> The 12 PM marker should be very close to the red center line.</p>
+            <p><strong>Second chart (original):</strong> The 12 PM marker should appear slightly to the right of the red center line.</p>
         </div>
     </div>
 
@@ -230,7 +230,7 @@
                                 callback: function(value) {
                                     if (value === 0) return '12 AM';
                                     if (value === 6) return '6 AM';
-                                    if (value === 12) return '🌞 12 PM';
+                                    if (value === 12) return '12 PM';
                                     if (value === 18) return '6 PM';
                                     if (value % 2 === 0) {
                                         if (value < 12) return `${value} AM`;

@@ -8,7 +8,10 @@ import os
 import re
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+sys.path.insert(0, project_root)
 
 
 def test_basic_imports():
@@ -191,10 +194,10 @@ def run_all_tests():
         print("🎉 ALL TESTS PASSED!")
         return True
     elif passed >= total * 0.8:
-        print("✅ Most tests passed - minor issues remain")
+        print("[OK] Most tests passed - minor issues remain")
         return True
     else:
-        print("❌ Significant issues found")
+        print("[FAIL] Significant issues found")
         return False
 
 

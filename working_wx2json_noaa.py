@@ -265,10 +265,10 @@ class wxmeow:
 
                 # Create weather icon for each day
                 if img_src:
-                    weather_emoji = self._get_weather_emoji(img_src)
+                    weather_desc = self._get_weather_emoji(img_src)
                 else:
                     # Use placeholder for empty images
-                    weather_emoji = "⚡"
+                    weather_desc = "unknown"
 
                 # Simplified click handler
                 onclick_handler = f"selectDay({i}); return false;"
@@ -276,13 +276,12 @@ class wxmeow:
                 futurepics += (
                     td_style
                     + f"<span id='{i}' class='day-selector weather-icon' "
-                    + "style='cursor:pointer; display:block; padding: 15px; text-align:center; font-size:48px; border-radius:4px;' "
+                    + "style='cursor:pointer; display:block; padding: 15px; text-align:center; font-size:14px; border-radius:4px;' "
                     + f'onclick="{onclick_handler}" '
                     + f'role="button" '
                     + f'aria-label="Select day {i + 1} forecast" '
-                    + 'tabindex="0">'
-                    + weather_emoji
-                    + "</span>"
+                    + 'tabindex="0" '
+                    + f'title="{weather_desc}">{weather_desc}</span>'
                     + td[1]
                 )
             except Exception as e:
@@ -318,7 +317,7 @@ class wxmeow:
                     + "style='cursor:pointer; display:block; padding: 15px; text-align:center; font-size:48px; border-radius:4px;' "
                     + 'onclick="'
                     + onclick_handler
-                    + '">⚡</span>'
+                    + '">thunderstorm</span>'
                     + td[1]
                 )
         futurepics += tr[1] + "</table>"
@@ -534,19 +533,19 @@ class wxmeow:
 
     def _get_weather_emoji(self, icon_url: str) -> str:
         """
-        Convert a weather icon URL to an appropriate emoji.
+        Convert a weather icon URL to a text description.
 
         Args:
             icon_url: The URL of the weather icon
 
         Returns:
-            A weather emoji representing the condition
+            A text description representing the condition
         """
         # Extract condition from icon URL
         condition = "unknown"
         try:
             if not icon_url:
-                return "🌈"
+                return "unknown"
 
             url_lower = str(icon_url).lower()
 
@@ -592,30 +591,30 @@ class wxmeow:
 
         except Exception as e:
             logger.warning(f"Error processing weather icon: {str(e)}")
-            return "🌈"
+            return "unknown"
 
-        # Map conditions to emojis - more diverse set of weather emojis
-        emoji_map = {
-            "clear": "☀️",
-            "clear_night": "🌙",
-            "partly_cloudy": "⛅",
-            "partly_cloudy_night": "🌤️",
-            "cloudy": "☁️",
-            "rain": "🌧️",
-            "shower": "🌦️",
-            "snow": "❄️",
-            "sleet": "🌨️",
-            "storm": "⛈️",
-            "lightning": "⚡",
-            "fog": "🌫️",
-            "windy": "💨",
-            "tornado": "🌪️",
-            "hot": "🔥",
-            "hurricane": "🌀",
-            "unknown": "🌈",
+        # Map conditions to simple text descriptions  
+        text_map = {
+            "clear": "clear",
+            "clear_night": "clear",
+            "partly_cloudy": "partly-cloudy",
+            "partly_cloudy_night": "partly-cloudy",
+            "cloudy": "cloudy",
+            "rain": "rain",
+            "shower": "light-rain",
+            "snow": "snow",
+            "sleet": "snow",
+            "storm": "thunderstorm",
+            "lightning": "thunderstorm",
+            "fog": "cloudy",
+            "windy": "windy",
+            "tornado": "windy",
+            "hot": "clear",
+            "hurricane": "thunderstorm",
+            "unknown": "unknown",
         }
 
-        return emoji_map.get(condition, "🌈")
+        return text_map.get(condition, "unknown")
 
     def _get_weather_condition_text(self, icon_url: str) -> str:
         """

@@ -6,8 +6,11 @@ Quick test to verify chart components are working without network calls.
 import sys
 import os
 
-# Add current directory to path
-sys.path.insert(0, os.path.dirname(__file__))
+# Add project root to path
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+)
+sys.path.insert(0, project_root)
 
 
 def test_imports():
@@ -16,10 +19,10 @@ def test_imports():
     try:
         from wxmeow.wx2json_noaa import wxmeow
 
-        print("✅ wxmeow import successful")
+        print("[OK] wxmeow import successful")
         return True
     except Exception as e:
-        print(f"❌ Import failed: {e}")
+        print(f"[FAIL] Import failed: {e}")
         return False
 
 
@@ -36,9 +39,9 @@ def test_files_exist():
     for filepath in files_to_check:
         if os.path.exists(filepath):
             size = os.path.getsize(filepath)
-            print(f"✅ {filepath} exists ({size} bytes)")
+            print(f"[OK] {filepath} exists ({size} bytes)")
         else:
-            print(f"❌ {filepath} missing")
+            print(f"[FAIL] {filepath} missing")
             all_exist = False
 
     return all_exist
@@ -62,15 +65,15 @@ def test_javascript_content():
         all_found = True
         for func in required_functions:
             if func in content:
-                print(f"✅ Found: {func}")
+                print(f"[OK] Found: {func}")
             else:
-                print(f"❌ Missing: {func}")
+                print(f"[FAIL] Missing: {func}")
                 all_found = False
 
         return all_found
 
     except Exception as e:
-        print(f"❌ Error reading JS file: {e}")
+        print(f"[FAIL] Error reading JS file: {e}")
         return False
 
 
@@ -84,22 +87,22 @@ def test_basic_weather_mock():
 
         # Check class exists
         weather_class = wx2json_noaa.wxmeow
-        print(f"✅ Weather class available: {weather_class}")
+        print(f"[OK] Weather class available: {weather_class}")
 
         # Check if we can see the meowhourly attribute in class
         if hasattr(weather_class, "__init__"):
-            print("✅ Weather class has __init__ method")
+            print("[OK] Weather class has __init__ method")
 
         return True
 
     except Exception as e:
-        print(f"❌ Weather object test failed: {e}")
+        print(f"[FAIL] Weather object test failed: {e}")
         return False
 
 
 def main():
     """Run all quick tests"""
-    print("🚀 QUICK CHART TEST")
+    print("QUICK CHART TEST")
     print("=" * 40)
 
     tests = [
@@ -119,7 +122,7 @@ def main():
     print("=" * 40)
     passed = 0
     for test_name, result in results:
-        status = "✅ PASS" if result else "❌ FAIL"
+        status = "[OK] PASS" if result else "[FAIL] FAIL"
         print(f"{test_name}: {status}")
         if result:
             passed += 1
@@ -130,7 +133,7 @@ def main():
         print("\n🎉 All basic components are in place!")
         print("Chart should work if network/API is accessible.")
     else:
-        print(f"\n⚠️ {len(tests) - passed} issues found")
+        print(f"\n[WARN] {len(tests) - passed} issues found")
         print("Fix the failing components first.")
 
 

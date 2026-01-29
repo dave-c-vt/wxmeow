@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Test script for the wxmeow theme switching functionality.
+Test script for the wxmeow simple styling functionality.
 
-This script tests that the theme preferences are correctly stored and applied.
+This script tests that the simple styling is working correctly without
+complex theme functionality.
 
 Usage:
     python test_theme.py
@@ -12,21 +13,19 @@ import sys
 import os
 from pathlib import Path
 import unittest
-from flask import session
 
 # Add project root to path to allow imports
 project_root = Path(__file__).parent.parent.parent.absolute()
 sys.path.append(str(project_root))
 
 from wxmeow import app as flask_app
-from wxmeow.views.main import get_theme_preference
 
 
-class ThemeSwitchingTest(unittest.TestCase):
-    """Test cases for theme switching functionality"""
+class SimpleThemeTest(unittest.TestCase):
+    """Test cases for simple theme functionality"""
 
     def setUp(self):
-        """Set up test client and enable sessions"""
+        """Set up test client"""
         self.app = flask_app
         self.app.config["TESTING"] = True
         self.app.config["SECRET_KEY"] = "testing_key"
@@ -41,65 +40,39 @@ class ThemeSwitchingTest(unittest.TestCase):
         """Clean up after tests"""
         self.app_context.pop()
 
-    def test_default_theme(self):
-        """Test that the default theme is light"""
-        with self.client as c:
-            # Make a request without setting theme
-            response = c.get("/")
-            self.assertIn('data-theme="light"', response.data.decode())
-
-    def test_setting_theme(self):
-        """Test setting the theme to dark"""
-        with self.client as c:
-            # Set the theme to dark
-            c.get("/set-theme/dark")
-
-            # Make a request and check the theme
-            response = c.get("/")
-            self.assertIn('data-theme="dark"', response.data.decode())
-
-    def test_theme_persistence(self):
-        """Test that theme preference persists across requests"""
-        with self.client as c:
-            # Set the theme to dark
-            c.get("/set-theme/dark")
-
-            # Make multiple requests
-            c.get("/")
-            c.get("/test/autocomplete")
-            response = c.get("/")
-
-            # Check the theme is still dark
-            self.assertIn('data-theme="dark"', response.data.decode())
-
-            # Change to light
-            c.get("/set-theme/light")
-            response = c.get("/")
-
-            # Check the theme changed to light
-            self.assertIn('data-theme="light"', response.data.decode())
-
-    def test_invalid_theme(self):
-        """Test that invalid themes are handled gracefully"""
-        with self.client as c:
-            # Try to set an invalid theme
-            c.get("/set-theme/invalid_theme")
-
-            # Should default to light
-            response = c.get("/")
-            self.assertIn('data-theme="', response.data.decode())
-
-    def test_theme_toggle_present(self):
-        """Test that the theme toggle is present in the HTML"""
+    def test_simple_styles_loaded(self):
+        """Test that simple CSS styles are loaded"""
         with self.client as c:
             response = c.get("/")
             html = response.data.decode()
+            self.assertIn('href=/home/blackcap/gits/wxmeow/wxmeow/static/styles_simple.css', response.data.decode())
 
-            # Check for theme toggle elements
-            self.assertIn('id="theme-toggle"', html)
-            self.assertIn('class="theme-toggle"', html)
-            self.assertIn('id="theme-icon-sun"', html)
-            self.assertIn('id="theme-icon-moon"', html)
+    def test_no_theme_attributes(self):
+        """Test that no complex theme attributes are present"""
+        with self.client as c:
+            response = c.get("/")
+            html = response.data.decode()
+            # Should not have theme switcher elements
+            self.assertNotIn('data-theme=', html)
+            self.assertNotIn('theme-toggle', html)
+            self.assertNotIn('theme-icon', html)
+
+    def test_chart_functionality_preserved(self):
+        """Test that chart JavaScript is still included"""
+        with self.client as c:
+            response = c.get("/")
+            html = response.data.decode()
+            # Chart script should be present
+            self.assertIn('temperature-chart.js', html)
+
+    def test_simple_cat_styling(self):
+        """Test that basic cat-themed elements are present"""
+        with self.client as c:
+            response = c.get("/")
+            html = response.data.decode()
+            # Should have the cat faces
+            self.assertIn('^.^___/', html)
+            self.assertIn('\\___^.^', html)
 
 
 if __name__ == "__main__":

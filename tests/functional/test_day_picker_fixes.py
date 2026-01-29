@@ -418,11 +418,11 @@ class TestDayPickerFixes:
             return True
         elif total_successes >= total_errors * 2:
             print(
-                "✅ MOSTLY WORKING: Minor issues found but core functionality is good."
+                "[OK] MOSTLY WORKING: Minor issues found but core functionality is good."
             )
             return True
         else:
-            print("❌ SIGNIFICANT ISSUES: Major problems found that need fixing.")
+            print("[FAIL] SIGNIFICANT ISSUES: Major problems found that need fixing.")
             return False
 
 

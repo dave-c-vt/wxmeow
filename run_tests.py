@@ -41,7 +41,7 @@ class TestRunner:
 
     def start_test_server(self) -> bool:
         """Start Flask development server for integration/functional tests."""
-        print("🚀 Starting Flask test server...")
+        print("Starting Flask test server...")
 
         env = os.environ.copy()
         env.update(
@@ -86,7 +86,7 @@ class TestRunner:
     def stop_test_server(self):
         """Stop the Flask test server."""
         if self.flask_process:
-            print("🛑 Stopping Flask test server...")
+            print("Stopping Flask test server...")
             self.flask_process.terminate()
             self.flask_process.wait()
             self.flask_process = None
@@ -159,7 +159,7 @@ class TestRunner:
 
     def run_functional_tests(self, verbose: bool = False, fast: bool = False) -> bool:
         """Run functional tests."""
-        print("\n🌐 Running functional tests...")
+        print("\nRunning functional tests...")
 
         # Start Flask server for functional tests
         if not self.start_test_server():
@@ -181,7 +181,7 @@ class TestRunner:
         self, coverage: bool = False, verbose: bool = False, fast: bool = False
     ) -> bool:
         """Run all tests in sequence."""
-        print("\n🎯 Running all tests...")
+        print("\nRunning all tests...")
 
         results = []
 
@@ -200,7 +200,7 @@ class TestRunner:
 
     def generate_test_report(self):
         """Generate comprehensive test report."""
-        print("\n📊 Generating test report...")
+        print("\n[*] Generating test report...")
 
         cmd = [
             sys.executable,
@@ -296,7 +296,7 @@ def main():
             sys.exit(1)
 
     except KeyboardInterrupt:
-        print("\n⚠️ Test run interrupted by user")
+        print("\nWARNING: Test run interrupted by user")
         sys.exit(130)
     except Exception as e:
         print(f"\n💥 Unexpected error: {e}")

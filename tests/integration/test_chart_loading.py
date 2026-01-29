@@ -30,7 +30,7 @@ def test_weather_page_chart_loading():
     tests_passed = 0
     total_tests = 8
 
-    print(f"\n📍 Testing location: {test_location}")
+    print(f"\nTesting location: {test_location}")
     print("-" * 40)
 
     # Test 1: Check if weather page loads
@@ -39,63 +39,63 @@ def test_weather_page_chart_loading():
         response = requests.get(weather_url, timeout=10)
 
         if response.status_code == 200:
-            print("✅ Weather page loads successfully")
+            print("[OK] Weather page loads successfully")
             tests_passed += 1
         else:
-            print(f"❌ Weather page failed to load (status: {response.status_code})")
+            print(f"[FAIL] Weather page failed to load (status: {response.status_code})")
             return False
 
         html_content = response.text
         soup = BeautifulSoup(html_content, "html.parser")
 
     except Exception as e:
-        print(f"❌ Failed to load weather page: {e}")
+        print(f"[FAIL] Failed to load weather page: {e}")
         return False
 
     # Test 2: Check data-location attribute
     body_tag = soup.find("body")
     if body_tag and body_tag.get("data-location"):
         location_attr = body_tag.get("data-location")
-        print(f"✅ data-location attribute found: '{location_attr}'")
+        print(f"[OK] data-location attribute found: '{location_attr}'")
         tests_passed += 1
     else:
-        print("❌ data-location attribute missing or empty")
+        print("[FAIL] data-location attribute missing or empty")
 
     # Test 3: Check for chart containers
     chart_containers = soup.find_all(
         "div", id=re.compile(r"hourly-temperature-chart-\d+")
     )
     if len(chart_containers) >= 5:
-        print(f"✅ Found {len(chart_containers)} chart containers")
+        print(f"[OK] Found {len(chart_containers)} chart containers")
         tests_passed += 1
     else:
-        print(f"❌ Expected 5+ chart containers, found {len(chart_containers)}")
+        print(f"[FAIL] Expected 5+ chart containers, found {len(chart_containers)}")
 
     # Test 4: Check for Chart.js library
     chartjs_scripts = soup.find_all("script", src=re.compile(r"chart\.js"))
     if chartjs_scripts:
-        print("✅ Chart.js library included")
+        print("[OK] Chart.js library included")
         tests_passed += 1
     else:
-        print("❌ Chart.js library not found")
+        print("[FAIL] Chart.js library not found")
 
     # Test 5: Check for temperature-chart.js
     temp_chart_scripts = soup.find_all(
         "script", src=re.compile(r"temperature-chart\.js")
     )
     if temp_chart_scripts:
-        print("✅ temperature-chart.js included")
+        print("[OK] temperature-chart.js included")
         tests_passed += 1
     else:
-        print("❌ temperature-chart.js not found")
+        print("[FAIL] temperature-chart.js not found")
 
     # Test 6: Check for day selector elements
     day_selectors = soup.find_all(class_=re.compile(r"day-selector"))
     if day_selectors:
-        print(f"✅ Found {len(day_selectors)} day selector elements")
+        print(f"[OK] Found {len(day_selectors)} day selector elements")
         tests_passed += 1
     else:
-        print("❌ No day selector elements found")
+        print("[FAIL] No day selector elements found")
 
     # Test 7: Test hourly API endpoint
     try:
@@ -105,40 +105,40 @@ def test_weather_page_chart_loading():
         if api_response.status_code == 200:
             hourly_data = api_response.json()
             if isinstance(hourly_data, list) and len(hourly_data) > 0:
-                print(f"✅ Hourly API returns {len(hourly_data)} data points")
+                print(f"[OK] Hourly API returns {len(hourly_data)} data points")
                 tests_passed += 1
 
                 # Check data structure
                 first_item = hourly_data[0]
                 required_fields = ["time", "temperature", "condition"]
                 if all(field in first_item for field in required_fields):
-                    print("✅ Hourly data has required fields")
+                    print("[OK] Hourly data has required fields")
                     tests_passed += 1
                 else:
-                    print("❌ Hourly data missing required fields")
+                    print("[FAIL] Hourly data missing required fields")
             else:
-                print("❌ Hourly API returns empty or invalid data")
+                print("[FAIL] Hourly API returns empty or invalid data")
         else:
-            print(f"❌ Hourly API failed (status: {api_response.status_code})")
+            print(f"[FAIL] Hourly API failed (status: {api_response.status_code})")
     except Exception as e:
-        print(f"❌ Failed to test hourly API: {e}")
+        print(f"[FAIL] Failed to test hourly API: {e}")
 
     # Test 8: Check for jQuery (needed for chart events)
     jquery_scripts = soup.find_all("script", src=re.compile(r"jquery"))
     if jquery_scripts:
-        print("✅ jQuery library included")
+        print("[OK] jQuery library included")
         tests_passed += 1
     else:
-        print("❌ jQuery library not found")
+        print("[FAIL] jQuery library not found")
 
-    print(f"\n📊 TEST RESULTS:")
+    print(f"\n[*] TEST RESULTS:")
     print("-" * 40)
     print(f"Tests Passed: {tests_passed}/{total_tests}")
     print(f"Success Rate: {(tests_passed / total_tests) * 100:.1f}%")
 
     if tests_passed >= 7:
         print("\n🎉 CHART LOADING APPEARS TO BE WORKING!")
-        print("✅ All essential components are present.")
+        print("[OK] All essential components are present.")
         print("\n💡 If charts still don't appear:")
         print("   1. Check browser console for JavaScript errors")
         print(
@@ -147,13 +147,13 @@ def test_weather_page_chart_loading():
         print("   3. Check that the hourly data is being fetched correctly")
         return True
     elif tests_passed >= 5:
-        print("\n⚠️  PARTIAL FUNCTIONALITY DETECTED")
+        print("\n[WARN]  PARTIAL FUNCTIONALITY DETECTED")
         print(
             "Most components are present but some issues may prevent proper chart loading."
         )
         return False
     else:
-        print("\n❌ CHART LOADING LIKELY NOT WORKING")
+        print("\n[FAIL] CHART LOADING LIKELY NOT WORKING")
         print("Multiple essential components are missing.")
         return False
 
@@ -191,13 +191,13 @@ def test_chart_debugging():
 
         # Look for specific error patterns
         if 'data-location=""' in html_content:
-            print("⚠️  WARNING: data-location attribute appears to be empty")
+            print("[WARN]  WARNING: data-location attribute appears to be empty")
 
         if "chart.js" not in html_content.lower():
-            print("❌ Chart.js library not found in HTML")
+            print("[FAIL] Chart.js library not found in HTML")
 
         if "temperature-chart.js" not in html_content:
-            print("❌ temperature-chart.js not found in HTML")
+            print("[FAIL] temperature-chart.js not found in HTML")
 
     except Exception as e:
         print(f"Error in debugging: {e}")
@@ -212,11 +212,11 @@ if __name__ == "__main__":
         test_chart_debugging()
 
         if success:
-            print("\n✅ Tests completed successfully!")
+            print("\n[OK] Tests completed successfully!")
         else:
-            print("\n⚠️  Tests completed with issues.")
+            print("\n[WARN]  Tests completed with issues.")
 
     except KeyboardInterrupt:
         print("\n\nTests interrupted by user.")
     except Exception as e:
-        print(f"\n❌ Test failed with error: {e}")
+        print(f"\n[FAIL] Test failed with error: {e}")

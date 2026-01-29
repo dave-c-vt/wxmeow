@@ -7,7 +7,11 @@ This will help identify where the chart system is breaking.
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(__file__))
+# Add project root to path
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+)
+sys.path.insert(0, project_root)
 
 
 def test_basic_weather():
@@ -20,24 +24,24 @@ def test_basic_weather():
 
         w = wxmeow("Boston, MA")
 
-        print(f"✅ Weather object created: {type(w)}")
-        print(f"✅ Has meowhourly: {hasattr(w, 'meowhourly')}")
+        print(f"[OK] Weather object created: {type(w)}")
+        print(f"[OK] Has meowhourly: {hasattr(w, 'meowhourly')}")
 
         if hasattr(w, "meowhourly"):
             hourly_len = len(w.meowhourly) if w.meowhourly else 0
-            print(f"✅ Hourly data points: {hourly_len}")
+            print(f"[OK] Hourly data points: {hourly_len}")
 
             if hourly_len > 0:
                 sample = w.meowhourly[0]
-                print(f"✅ Sample data keys: {list(sample.keys())}")
-                print(f"✅ Sample time: {sample.get('time', 'N/A')}")
-                print(f"✅ Sample temp: {sample.get('temperature', 'N/A')}°F")
+                print(f"[OK] Sample data keys: {list(sample.keys())}")
+                print(f"[OK] Sample time: {sample.get('time', 'N/A')}")
+                print(f"[OK] Sample temp: {sample.get('temperature', 'N/A')}°F")
                 return w
 
         return w
 
     except Exception as e:
-        print(f"❌ Error creating weather object: {e}")
+        print(f"[FAIL] Error creating weather object: {e}")
         import traceback
 
         print(traceback.format_exc())
@@ -50,35 +54,35 @@ def test_html_output(weather_obj):
     print("-" * 40)
 
     if not weather_obj:
-        print("❌ No weather object to test")
+        print("[FAIL] No weather object to test")
         return False
 
     try:
         html = weather_obj.futuremeow
-        print(f"✅ HTML generated: {len(html)} characters")
+        print(f"[OK] HTML generated: {len(html)} characters")
 
         # Check for key elements
         chart_containers = html.count("hourly-temperature-chart")
-        print(f"✅ Chart containers found: {chart_containers}")
+        print(f"[OK] Chart containers found: {chart_containers}")
 
         has_chartjs = "chart.js" in html.lower()
-        print(f"✅ Chart.js included: {has_chartjs}")
+        print(f"[OK] Chart.js included: {has_chartjs}")
 
         has_temp_script = "temperature-chart.js" in html
-        print(f"✅ Temperature chart script: {has_temp_script}")
+        print(f"[OK] Temperature chart script: {has_temp_script}")
 
         # Look for temperature values
         import re
 
         temps = re.findall(r"(\d+)\s*F", html)
         print(
-            f"✅ Temperature values found: {len(temps)} ({temps[:5] if temps else 'none'})"
+            f"[OK] Temperature values found: {len(temps)} ({temps[:5] if temps else 'none'})"
         )
 
         return True
 
     except Exception as e:
-        print(f"❌ Error generating HTML: {e}")
+        print(f"[FAIL] Error generating HTML: {e}")
         import traceback
 
         print(traceback.format_exc())
@@ -97,30 +101,30 @@ def test_api_endpoint():
 
         with app.test_client() as client:
             response = client.get("/api/hourly/Boston,%20MA")
-            print(f"✅ API status code: {response.status_code}")
+            print(f"[OK] API status code: {response.status_code}")
 
             if response.status_code == 200:
                 import json
 
                 data = json.loads(response.data)
-                print(f"✅ API data points: {len(data)}")
+                print(f"[OK] API data points: {len(data)}")
 
                 if data and len(data) > 0:
                     sample = data[0]
-                    print(f"✅ API sample time: {sample.get('time', 'N/A')}")
-                    print(f"✅ API sample temp: {sample.get('temperature', 'N/A')}°F")
-                    print(f"✅ API sample condition: {sample.get('condition', 'N/A')}")
+                    print(f"[OK] API sample time: {sample.get('time', 'N/A')}")
+                    print(f"[OK] API sample temp: {sample.get('temperature', 'N/A')}°F")
+                    print(f"[OK] API sample condition: {sample.get('condition', 'N/A')}")
                     return True
                 else:
-                    print("❌ API returned empty data")
+                    print("[FAIL] API returned empty data")
                     return False
             else:
-                print(f"❌ API error: {response.status_code}")
+                print(f"[FAIL] API error: {response.status_code}")
                 print(f"Response: {response.data}")
                 return False
 
     except Exception as e:
-        print(f"❌ Error testing API: {e}")
+        print(f"[FAIL] Error testing API: {e}")
         import traceback
 
         print(traceback.format_exc())
@@ -142,7 +146,7 @@ def test_javascript_file():
             if os.path.exists(path):
                 with open(path, "r") as f:
                     content = f.read()
-                    print(f"✅ Found JS file: {path} ({len(content)} chars)")
+                    print(f"[OK] Found JS file: {path} ({len(content)} chars)")
 
                     # Check for key functions
                     has_create_chart = "createTemperatureChart" in content
@@ -155,10 +159,10 @@ def test_javascript_file():
 
                     return True
             else:
-                print(f"❌ JS file not found: {path}")
+                print(f"[FAIL] JS file not found: {path}")
 
         except Exception as e:
-            print(f"❌ Error reading JS file {path}: {e}")
+            print(f"[FAIL] Error reading JS file {path}: {e}")
 
     return False
 
@@ -186,17 +190,17 @@ def main():
     # Summary
     print("\n📋 DEBUG SUMMARY")
     print("=" * 50)
-    print(f"Weather Object: {'✅' if weather_obj else '❌'}")
-    print(f"HTML Output: {'✅' if html_ok else '❌'}")
-    print(f"API Endpoint: {'✅' if api_ok else '❌'}")
-    print(f"JavaScript File: {'✅' if js_ok else '❌'}")
+    print(f"Weather Object: {'[OK]' if weather_obj else '[FAIL]'}")
+    print(f"HTML Output: {'[OK]' if html_ok else '[FAIL]'}")
+    print(f"API Endpoint: {'[OK]' if api_ok else '[FAIL]'}")
+    print(f"JavaScript File: {'[OK]' if js_ok else '[FAIL]'}")
 
     if all([weather_obj, html_ok, api_ok, js_ok]):
         print("\n🎉 ALL COMPONENTS WORKING!")
         print("The chart should display properly.")
         print("If it's still not working, check browser console for errors.")
     else:
-        print("\n⚠️ ISSUES FOUND!")
+        print("\n[WARN] ISSUES FOUND!")
         print("Fix the failing components above.")
 
     print("\n💡 NEXT STEPS:")

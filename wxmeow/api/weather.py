@@ -190,87 +190,9 @@ def get_weather(location: str):
 
                 # Ensure we have at least some data
                 if not hourly_data:
-                    logger.warning(
-                        "No valid hourly data points found, creating dummy data"
-                    )
-                    # Generate some dummy data
-                    current_time = datetime.now()
-                    # Create data for 5 days, 24 hours each
-                    for day in range(5):
-                        for hour in range(24):
-                            # Use modulo to wrap hours properly
-                            adjusted_hour = (current_time.hour + hour) % 24
-                            hour_time = current_time.replace(
-                                day=current_time.day + day, hour=adjusted_hour
-                            )
-
-                            # Generate sine wave pattern with daily variation
-                            base_temp = 65 + day * 2  # Each day gets slightly warmer
-                            hour_variation = 10 * math.sin((hour - 12) * math.pi / 12)
-                            random_variation = (
-                                hash(f"{location}:{day}:{hour}") % 5
-                            ) - 2  # Consistent randomness
-
-                            dummy_temp = round(
-                                base_temp + hour_variation + random_variation, 1
-                            )
-                            # Determine condition based on hour and temperature
-                            conditions = [
-                                "Clear",
-                                "Partly Cloudy",
-                                "Mostly Cloudy",
-                                "Cloudy",
-                                "Rain",
-                                "Thunderstorms",
-                            ]
-                            condition_index = hash(f"{location}:{day}:{hour}") % len(
-                                conditions
-                            )
-                            condition = conditions[condition_index]
-
-                            # Generate precipitation chance based on condition and time
-                            precip_chance = 0
-                            if condition == "Rain":
-                                precip_chance = 60 + (hour % 3) * 10
-                            elif condition == "Thunderstorms":
-                                precip_chance = 80 + (hour % 2) * 10
-                            elif condition == "Cloudy":
-                                precip_chance = 30 + (hour % 4) * 5
-                            elif condition == "Mostly Cloudy":
-                                precip_chance = 20 + (hour % 5) * 3
-                            elif condition == "Partly Cloudy":
-                                precip_chance = 10 + (hour % 6) * 2
-                            else:  # Clear
-                                precip_chance = 0
-
-                            hourly_data.append(
-                                {
-                                    "time": hour_time.isoformat(),
-                                    "temperature": dummy_temp,
-                                    "temp": dummy_temp,
-                                    "condition": condition,
-                                    "precipitation": precip_chance,
-                                    "precip": precip_chance,
-                                    "wind": {
-                                        "speed": f"{5 + (day * 2)} mph",
-                                        "direction": [
-                                            "N",
-                                            "NE",
-                                            "E",
-                                            "SE",
-                                            "S",
-                                            "SW",
-                                            "W",
-                                            "NW",
-                                        ][hour % 8],
-                                    },
-                                    "icon": "",
-                                    "day": day,
-                                }
-                            )
-                    logger.info(
-                        "Added 120 dummy hourly data points (5 days x 24 hours)"
-                    )
+                    logger.warning("No valid hourly data points found")
+                    # Instead of generating dummy data, return empty array for now
+                    hourly_data = []
 
                 weather_data["hourly_forecast"] = hourly_data
                 logger.info(
@@ -278,42 +200,9 @@ def get_weather(location: str):
                 )
             except (json.JSONDecodeError, AttributeError, TypeError) as e:
                 logger.error(f"Error processing hourly forecast data: {str(e)}")
-                # Instead of returning an empty array, generate dummy data
-                try:
-                    logger.info("Generating fallback hourly data after error")
-                    current_time = datetime.now()
-                    hourly_data = []
-
-                    for day in range(5):
-                        for hour in range(24):
-                            adjusted_hour = (current_time.hour + hour) % 24
-                            hour_time = current_time.replace(
-                                day=current_time.day + day, hour=adjusted_hour
-                            )
-                            dummy_temp = (
-                                70 + day * 2 + 10 * math.sin((hour - 12) * math.pi / 12)
-                            )
-
-                            hourly_data.append(
-                                {
-                                    "time": hour_time.isoformat(),
-                                    "temperature": round(dummy_temp, 1),
-                                    "temp": round(dummy_temp, 1),
-                                    "condition": "Fallback Forecast",
-                                    "precipitation": 0,
-                                    "wind": {"speed": "5 mph", "direction": "N"},
-                                    "icon": "",
-                                    "day": day,
-                                }
-                            )
-
-                    weather_data["hourly_forecast"] = hourly_data
-                    logger.info("Successfully created fallback hourly data")
-                except Exception as fallback_error:
-                    logger.error(
-                        f"Failed to create fallback data: {str(fallback_error)}"
-                    )
-                    weather_data["hourly_forecast"] = []
+                # Return empty array if no valid data instead of generating dummy data
+                weather_data["hourly_forecast"] = []
+                logger.info("No hourly data available - returning empty array")
 
                 logger.error(f"Original error details: {str(e)}")
                 logger.debug(traceback.format_exc())

@@ -103,10 +103,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Helper function to check if dark mode is active
-  function isDarkMode() {
-    return document.documentElement.getAttribute("data-theme") === "dark";
-  }
+  // Removed dark mode detection - using simple static colors for spartan theme
 
   // Function to create or update the temperature chart
   function createTemperatureChart(dayIndex) {
@@ -300,19 +297,30 @@ document.addEventListener("DOMContentLoaded", function () {
       `[DEBUG] Canvas created for chart ${dayIndex}: ${canvas.id}, dimensions: ${canvas.style.width}x${canvas.style.height}`,
     );
 
-    // Set up gradient for the chart
+    // Set up gradients for both datasets with spartan, accessible colors
     const ctx = canvas.getContext("2d");
-    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    
+    // Temperature gradient: Navy blue - spartan and accessible
+    const tempGradient = ctx.createLinearGradient(0, 0, 0, 300);
+    tempGradient.addColorStop(0, "rgba(25, 25, 112, 0.6)");   // Dark blue
+    tempGradient.addColorStop(0.5, "rgba(25, 25, 112, 0.3)");
+    tempGradient.addColorStop(1, "rgba(25, 25, 112, 0.05)");
+    
+    // Precipitation gradient: Rust orange - contrasts well with blue, accessible
+    const precipGradient = ctx.createLinearGradient(0, 0, 0, 300);
+    precipGradient.addColorStop(0, "rgba(205, 92, 92, 0.5)");   // Indian red/rust
+    precipGradient.addColorStop(0.5, "rgba(205, 92, 92, 0.2)");
+    precipGradient.addColorStop(1, "rgba(205, 92, 92, 0.05)");
 
-    if (isDarkMode()) {
-      gradient.addColorStop(0, "rgba(255, 159, 64, 0.7)");
-      gradient.addColorStop(0.5, "rgba(255, 159, 64, 0.3)");
-      gradient.addColorStop(1, "rgba(255, 159, 64, 0.05)");
-    } else {
-      gradient.addColorStop(0, "rgba(66, 133, 244, 0.7)");
-      gradient.addColorStop(0.5, "rgba(66, 133, 244, 0.3)");
-      gradient.addColorStop(1, "rgba(66, 133, 244, 0.05)");
-    }
+    // Create precipitation data for second dataset
+    const precipData = chartData.map(item => ({
+      x: item.x,
+      y: item.precipitation || 0,
+      time: item.time,
+      condition: item.condition,
+      precipitation: item.precipitation || 0,
+      temperature: item.temperature,
+    }));
 
     // Create the chart
     currentChart = new Chart(ctx, {
@@ -322,39 +330,52 @@ document.addEventListener("DOMContentLoaded", function () {
           {
             label: "Temperature (°F)",
             data: chartData,
+            yAxisID: 'temperature',
             spanGaps: true,
-            backgroundColor: gradient,
-            borderColor: isDarkMode()
-              ? "rgba(255, 159, 64, 1)"
-              : "rgba(66, 133, 244, 1)",
-            borderWidth: 3,
+            backgroundColor: tempGradient,
+            borderColor: "rgba(25, 25, 112, 1)", // Dark blue
+            borderWidth: 2,
             pointBackgroundColor: chartData.map((item, index) => {
               // Highlight high/low temperature points
-              if (index === highIndex) return "rgba(255, 99, 132, 1)"; // Red for high
-              if (index === lowIndex) return "rgba(54, 162, 235, 1)"; // Blue for low
-              return isDarkMode()
-                ? "rgba(255, 159, 64, 1)"
-                : "rgba(66, 133, 244, 1)";
+              if (index === highIndex) return "rgba(25, 25, 112, 1)"; // Dark blue for high
+              if (index === lowIndex) return "rgba(25, 25, 112, 1)"; // Dark blue for low  
+              return "rgba(25, 25, 112, 1)";
             }),
             pointBorderColor: chartData.map((item, index) => {
               if (index === highIndex || index === lowIndex) return "#fff";
-              return isDarkMode() ? "#333" : "#fff";
+              return "#fff";
             }),
             pointRadius: chartData.map((item, index) => {
               // Make high/low points larger
-              if (index === highIndex || index === lowIndex) return 8;
-              return 4;
+              if (index === highIndex || index === lowIndex) return 6;
+              return 3;
             }),
             pointBorderWidth: chartData.map((item, index) => {
-              if (index === highIndex || index === lowIndex) return 3;
+              if (index === highIndex || index === lowIndex) return 2;
               return 1;
             }),
-            pointHoverBackgroundColor: isDarkMode() ? "#333" : "#fff",
-            pointHoverBorderColor: isDarkMode()
-              ? "rgba(255, 159, 64, 1)"
-              : "rgba(66, 133, 244, 1)",
-            pointHoverRadius: 7,
-            tension: 0.4,
+            pointHoverBackgroundColor: "#fff",
+            pointHoverBorderColor: "rgba(25, 25, 112, 1)",
+            pointHoverRadius: 5,
+            tension: 0.3,
+            fill: true,
+          },
+          {
+            label: "Precipitation (%)",
+            data: precipData,
+            yAxisID: 'precipitation',
+            spanGaps: true,
+            backgroundColor: precipGradient,
+            borderColor: "rgba(205, 92, 92, 1)", // Rust color
+            borderWidth: 2,
+            pointBackgroundColor: "rgba(205, 92, 92, 1)",
+            pointBorderColor: "#fff",
+            pointRadius: 3,
+            pointBorderWidth: 1,
+            pointHoverBackgroundColor: "#fff",
+            pointHoverBorderColor: "rgba(205, 92, 92, 1)",
+            pointHoverRadius: 5,
+            tension: 0.3,
             fill: true,
           },
         ],
@@ -364,87 +385,73 @@ document.addEventListener("DOMContentLoaded", function () {
         maintainAspectRatio: false,
         layout: {
           padding: {
-            left: 40,
-            right: 10,
-            top: 50,
+            left: 20,
+            right: 50,
+            top: 20,
             bottom: 10,
           },
         },
-        color: isDarkMode() ? "#e0e0e0" : "#333333",
+        color: "#333333",
         animation: {
-          duration: 1200,
+          duration: 800,
           easing: "easeOutQuart",
         },
         hover: {
-          mode: "nearest",
+          mode: "index",
           intersect: false,
-          animationDuration: 300,
+          animationDuration: 200,
         },
         plugins: {
           legend: {
-            display: false,
+            display: true,
+            position: 'bottom',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'line',
+              font: {
+                family: "monospace",
+                size: 10,
+              },
+              color: "#333333",
+              padding: 15,
+            },
           },
           tooltip: {
-            backgroundColor: isDarkMode()
-              ? "rgba(30, 30, 30, 0.9)"
-              : "rgba(255, 255, 255, 0.95)",
-            titleColor: isDarkMode() ? "#fff" : "#333",
-            bodyColor: isDarkMode() ? "#fff" : "#333",
-            borderColor: isDarkMode() ? "#666" : "#ccc",
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            titleColor: "#333",
+            bodyColor: "#333",
+            borderColor: "#ccc",
             borderWidth: 1,
-            padding: 12,
-            cornerRadius: 6,
-            displayColors: false,
+            padding: 8,
+            cornerRadius: 3,
+            displayColors: true,
+            mode: 'index',
+            intersect: false,
             callbacks: {
               label: function (context) {
-                const dataPoint = context.raw;
-                const temp = dataPoint.y;
-                const condition = dataPoint.condition || "Unknown";
-                const precipitation = dataPoint.precipitation || 0;
-                const index = context.dataIndex;
-
-                // Handle null/missing temperature data
-                if (temp === null || temp === undefined) {
-                  return [
-                    `Temperature: No data available`,
-                    `Condition: ${condition}`,
-                    `Precipitation: ${precipitation}%`,
-                  ];
+                const datasetLabel = context.dataset.label;
+                const value = context.parsed.y;
+                
+                if (datasetLabel.includes('Temperature')) {
+                  return `${datasetLabel}: ${value}°F`;
+                } else if (datasetLabel.includes('Precipitation')) {
+                  return `${datasetLabel}: ${value}%`;
                 }
-
-                const formattedTemp = `${temp}°F`;
-                let tempLabel = `Temperature: ${formattedTemp}`;
-
-                // Add HIGH/LOW indicators
-                if (index === highIndex) {
-                  tempLabel += " (HIGH)";
-                } else if (index === lowIndex) {
-                  tempLabel += " (LOW)";
-                }
-
-                return [
-                  tempLabel,
-                  `Condition: ${condition}`,
-                  `Precipitation: ${precipitation}%`,
-                ];
+                return `${datasetLabel}: ${value}`;
               },
               title: function (tooltipItems) {
-                // Format the time with date in a more readable way
                 try {
                   const dataPoint = tooltipItems[0].raw;
                   const date = new Date(dataPoint.time);
-                  return date
-                    .toLocaleString([], {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                      hour12: true,
-                    })
-                    .toUpperCase();
+                  return date.toLocaleString([], {
+                    weekday: "short",
+                    month: "short", 
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                  });
                 } catch (e) {
-                  console.debug("[DEBUG] Error formatting tooltip title:", e);
                   return `${tooltipItems[0].label || "N/A"}`;
                 }
               },
@@ -455,179 +462,104 @@ document.addEventListener("DOMContentLoaded", function () {
           x: {
             type: "linear",
             position: "bottom",
-            min: 0,
-            max: 23,
+            min: -0.5,  // Start slightly before midnight
+            max: 23.5,  // End slightly after 11pm to ensure full midnight-to-midnight coverage
             title: {
               display: true,
               text: "Hour of Day",
               font: {
-                family: "Arial",
-                size: 12,
-                weight: "bold",
+                family: "monospace",
+                size: 11,
+                weight: "normal",
               },
-              color: isDarkMode() ? "#e0e0e0" : "#333333",
+              color: "#333333",
             },
             ticks: {
-              stepSize: 2,
-              color: isDarkMode() ? "#e0e0e0" : "#333333",
+              stepSize: 3,
+              color: "#333333",
               font: {
-                family: "Arial",
-                size: 11,
+                family: "monospace",
+                size: 10,
               },
               callback: function (value, index, values) {
                 const hour = Math.round(value);
-                if (hour === 0) return "12 AM";
-                if (hour < 12) return `${hour} AM`;
-                if (hour === 12) return "12 PM";
-                return `${hour - 12} PM`;
+                if (hour < 0 || hour > 23) return '';
+                if (hour === 0) return "12AM";
+                if (hour < 12) return `${hour}AM`;
+                if (hour === 12) return "12PM";
+                return `${hour - 12}PM`;
               },
             },
             grid: {
-              color: isDarkMode()
-                ? "rgba(255, 255, 255, 0.1)"
-                : "rgba(0, 0, 0, 0.1)",
+              color: "rgba(0, 0, 0, 0.08)",
               lineWidth: function (context) {
                 const value = context.tick.value;
-                if (value % 12 === 0) return 2;
+                if (value === 0 || value === 12) return 2; // Emphasize midnight and noon
                 if (value % 6 === 0) return 1.5;
-                return 1;
+                return 0.5;
               },
             },
           },
-          y: {
+          temperature: {
+            type: 'linear',
+            position: 'left',
             title: {
               display: true,
               text: "Temperature (°F)",
               font: {
-                family: "Arial",
-                size: 12,
-                weight: "bold",
+                family: "monospace",
+                size: 11,
+                weight: "normal",
               },
-              color: isDarkMode() ? "#e0e0e0" : "#333333",
+              color: "rgba(25, 25, 112, 1)",
             },
             ticks: {
-              color: isDarkMode() ? "#e0e0e0" : "#333333",
+              color: "rgba(25, 25, 112, 1)",
               font: {
-                family: "Arial",
-                size: 11,
+                family: "monospace",
+                size: 10,
               },
             },
             grid: {
-              color: isDarkMode()
-                ? "rgba(255, 255, 255, 0.1)"
-                : "rgba(0, 0, 0, 0.1)",
-              lineWidth: function (context) {
-                const value = context.tick.value;
-                if (value % 12 === 0) return 2;
-                if (value % 6 === 0) return 1.5;
-                return 1;
+              color: "rgba(0, 0, 0, 0.1)",
+              lineWidth: 0.5,
+            },
+          },
+          precipitation: {
+            type: 'linear',
+            position: 'right',
+            min: 0,
+            max: 100,
+            title: {
+              display: true,
+              text: "Precipitation (%)",
+              font: {
+                family: "monospace",
+                size: 11,
+                weight: "normal",
               },
+              color: "rgba(205, 92, 92, 1)",
+            },
+            ticks: {
+              color: "rgba(205, 92, 92, 1)",
+              font: {
+                family: "monospace",
+                size: 10,
+              },
+              stepSize: 25,
+            },
+            grid: {
+              drawOnChartArea: false, // Don't draw grid lines for precipitation axis
             },
           },
         },
       },
     });
 
-    // Wait for chart to render, then add custom annotations
-    setTimeout(() => {
-      const ctx = currentChart.ctx;
-      const yAxis = currentChart.scales.y;
-      const xAxis = currentChart.scales.x;
-
-      // Draw sunrise line
-      if (sunriseHour >= 0 && sunriseHour <= 23) {
-        const sunriseX = xAxis.getPixelForValue(sunriseHour);
-        ctx.save();
-        ctx.strokeStyle = "rgba(255, 193, 7, 0.8)";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.moveTo(sunriseX, yAxis.top);
-        ctx.lineTo(sunriseX, yAxis.bottom);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Sunrise label
-        ctx.fillStyle = "rgba(255, 193, 7, 1)";
-        ctx.font = "bold 14px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("🌅 SUNRISE", sunriseX, yAxis.top - 10);
-        ctx.restore();
-      }
-
-      // Draw sunset line
-      if (sunsetHour >= 0 && sunsetHour <= 23) {
-        const sunsetX = xAxis.getPixelForValue(sunsetHour);
-        ctx.save();
-        ctx.strokeStyle = "rgba(255, 87, 34, 0.8)";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.moveTo(sunsetX, yAxis.top);
-        ctx.lineTo(sunsetX, yAxis.bottom);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Sunset label
-        ctx.fillStyle = "rgba(255, 87, 34, 1)";
-        ctx.font = "bold 14px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("🌇 SUNSET", sunsetX, yAxis.top - 10);
-        ctx.restore();
-      }
-
-      // Draw high temperature label
-      if (highIndex >= 0 && validTemps.length > 0) {
-        const highPoint = chartData[highIndex];
-        const highX = xAxis.getPixelForValue(highPoint.x);
-        const highY = yAxis.getPixelForValue(highPoint.y);
-
-        ctx.save();
-        ctx.fillStyle = "rgba(255, 99, 132, 1)";
-        ctx.font = "bold 16px Arial";
-        ctx.textAlign = "center";
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 3;
-        ctx.strokeText(`${highTemp}°F`, highX, highY - 20);
-        ctx.fillText(`${highTemp}°F`, highX, highY - 20);
-        ctx.font = "bold 12px Arial";
-        ctx.strokeText("HIGH", highX, highY - 35);
-        ctx.fillText("HIGH", highX, highY - 35);
-        ctx.restore();
-      }
-
-      // Draw low temperature label
-      if (lowIndex >= 0 && validTemps.length > 0) {
-        const lowPoint = chartData[lowIndex];
-        const lowX = xAxis.getPixelForValue(lowPoint.x);
-        const lowY = yAxis.getPixelForValue(lowPoint.y);
-
-        ctx.save();
-        ctx.fillStyle = "rgba(54, 162, 235, 1)";
-        ctx.font = "bold 16px Arial";
-        ctx.textAlign = "center";
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 3;
-        ctx.strokeText(`${lowTemp}°F`, lowX, lowY + 30);
-        ctx.fillText(`${lowTemp}°F`, lowX, lowY + 30);
-        ctx.font = "bold 12px Arial";
-        ctx.strokeText("LOW", lowX, lowY + 45);
-        ctx.fillText("LOW", lowX, lowY + 45);
-        ctx.restore();
-      }
-    }, 100);
-
-    // Make sure the chart displays correctly
-    canvas.style.height = "300px";
-    canvas.style.width = "100%";
-
-    // Store the chart reference
+    // Store chart for cleanup
     charts[dayIndex] = currentChart;
-
-    // Restore scroll position to prevent page jumping
-    if (typeof currentScrollY !== "undefined") {
-      setTimeout(() => window.scrollTo(currentScrollX, currentScrollY), 0);
-    }
+    
+    console.debug(`[DEBUG] Chart created successfully for day ${dayIndex}`);
   }
 
   // Helper function to get the date for the selected day index in local timezone
@@ -815,18 +747,53 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       // Fourth attempt: if we're showing day N, show hours (N*24) through ((N+1)*24)
-      // But first convert all times to local timezone to find the right slice
+      // BUT ensure we get the right 24 hours for the target date from midnight to midnight
       const dayDiff = Math.floor(
         (targetDate - localToday) / (24 * 60 * 60 * 1000),
       );
-      if (dayDiff >= 0 && dayDiff < 5) {
+      
+      console.debug(`[DEBUG] Day difference: ${dayDiff}`);
+      console.debug(`[DEBUG] Target date: ${targetDate.toISOString()}`);
+      console.debug(`[DEBUG] Local today: ${localToday.toISOString()}`);
+      
+      if (dayDiff >= 0 && dayDiff < 7) { // Extend to 7 days to cover more forecasts
         console.debug(
           `[DEBUG] Attempting day offset method for day difference: ${dayDiff}`,
         );
+        
+        // For day 0 (today), start from the current hour if available, otherwise from beginning
+        // For future days (1+), always start from midnight (hour 0)
+        let startHour = 0;
+        if (dayDiff === 0) {
+          // For today, we might want to start from current time, but let's always show midnight-to-midnight
+          startHour = 0;
+        }
+        
+        // Create exact date range for the target date from midnight to 11:59:59 PM
+        const targetDateStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
+        const targetDateEnd = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
+        
+        console.debug(`[DEBUG] Looking for data between ${targetDateStart.toISOString()} and ${targetDateEnd.toISOString()}`);
+        
+        const dayData = hourlyData.filter((item) => {
+          if (!item.time) return false;
+          const itemDate = new Date(item.time);
+          
+          // For proper midnight-to-midnight filtering, check if item falls within the exact date range
+          return itemDate >= targetDateStart && itemDate <= targetDateEnd;
+        });
+        
+        console.debug(`[DEBUG] Found ${dayData.length} items for exact date range`);
+        if (dayData.length > 0) {
+          return ensureFullDayCoverage(dayData, targetDate);
+        }
+        
+        // Fallback to original index-based approach if date filtering doesn't work
         const startIndex = Math.min(dayDiff * 24, hourlyData.length - 1);
         const endIndex = Math.min(startIndex + 24, hourlyData.length);
-        const dayData = hourlyData.slice(startIndex, endIndex);
-        return ensureFullDayCoverage(dayData, targetDate);
+        const indexBasedData = hourlyData.slice(startIndex, endIndex);
+        console.debug(`[DEBUG] Fallback index range ${startIndex}-${endIndex}, got ${indexBasedData.length} items`);
+        return ensureFullDayCoverage(indexBasedData, targetDate);
       }
 
       // If all else fails, return empty array
@@ -846,17 +813,21 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Always create a complete 24-hour structure regardless of input
     const fullDayData = [];
+    
+    // Create base date at midnight in local timezone for the target date
     const baseDate = new Date(
       targetDate.getFullYear(),
       targetDate.getMonth(),
       targetDate.getDate(),
-      0,
-      0,
-      0,
-      0,
+      0, // Start at midnight (hour 0)
+      0, // minute 0
+      0, // second 0
+      0  // millisecond 0
     );
 
-    // Create exactly 24 data points for hours 0-23
+    console.debug(`[DEBUG] Base date (midnight): ${baseDate.toISOString()}`);
+
+    // Create exactly 24 data points for hours 0-23 (midnight to 11pm)
     for (let hour = 0; hour < 24; hour++) {
       const hourDate = new Date(
         baseDate.getFullYear(),
@@ -867,6 +838,8 @@ document.addEventListener("DOMContentLoaded", function () {
         0,
         0,
       );
+
+      console.debug(`[DEBUG] Hour ${hour}: Creating data point for ${hourDate.toISOString()}`);
 
       // Find existing data for this hour
       let existingData = null;
@@ -1217,60 +1190,5 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // Update chart when theme changes
-  const themeToggle = document.getElementById("theme-toggle");
-  if (themeToggle) {
-    themeToggle.addEventListener("change", function () {
-      // If we have data, recreate all charts with the new theme
-      if (hourlyData) {
-        // Get current day index, defaulting to 0
-        const dayIndex =
-          typeof lastSelectedDay !== "undefined" ? lastSelectedDay : 0;
-
-        // Wait for theme change to take effect
-        setTimeout(function () {
-          // Clear all charts first
-          for (let i = 0; i < 5; i++) {
-            if (charts[i]) {
-              charts[i].destroy();
-              charts[i] = null;
-            }
-          }
-
-          // Create chart for current day
-          createTemperatureChart(dayIndex);
-
-          // Preload charts for other days - focus on the next day first
-          setTimeout(() => {
-            // Calculate the next day (circular)
-            const nextDay = (dayIndex + 1) % 5;
-
-            // Create chart for the next day first
-            const nextContainer = document.getElementById(
-              `hourly-temperature-chart-${nextDay}`,
-            );
-            if (nextContainer && !charts[nextDay]) {
-              nextContainer.style.display = "none";
-              createTemperatureChart(nextDay);
-            }
-
-            // Then create charts for remaining days
-            setTimeout(() => {
-              for (let i = 0; i < 5; i++) {
-                if (i !== dayIndex && i !== nextDay && !charts[i]) {
-                  const container = document.getElementById(
-                    `hourly-temperature-chart-${i}`,
-                  );
-                  if (container) {
-                    container.style.display = "none";
-                    createTemperatureChart(i);
-                  }
-                }
-              }
-            }, 300);
-          }, 200);
-        }, 100);
-      }
-    });
-  }
+  // Simple theme - no theme toggle needed
 });

@@ -533,7 +533,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    fetch(`/api/weather/${encodeURIComponent(location)}`)
+    fetch(`/api/hourly/${encodeURIComponent(location)}`)
       .then((response) => {
         if (!response.ok) throw new Error("Weather API error");
         return response.json();
@@ -541,10 +541,13 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((data) => {
         console.debug("[DEBUG] Raw API response:", data);
 
-        if (data && data.hourly_forecast) {
-          let forecastData;
-
-          // Handle different response formats
+        // The API now returns the hourly data directly as an array
+        let forecastData;
+        
+        if (Array.isArray(data)) {
+          forecastData = data;
+        } else if (data && data.hourly_forecast) {
+          // Legacy support for wrapped format
           if (typeof data.hourly_forecast === "string") {
             console.warn("Hourly forecast is a string, not an array");
             forecastData = [];
@@ -557,6 +560,10 @@ document.addEventListener("DOMContentLoaded", function () {
             );
             forecastData = [];
           }
+        } else {
+          console.warn("No hourly forecast data in response");
+          forecastData = [];
+        }
 
           console.log(
             `Received ${forecastData.length} hourly forecast data points`,
@@ -592,12 +599,6 @@ document.addEventListener("DOMContentLoaded", function () {
               initialDayIndex,
             );
           }
-        } else {
-          handleNoForecastData(
-            "No hourly forecast data available in API response",
-            initialDayIndex,
-          );
-        }
       })
       .catch((error) => {
         console.error("Error fetching hourly forecast data:", error);

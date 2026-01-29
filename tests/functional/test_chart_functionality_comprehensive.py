@@ -153,10 +153,10 @@ class ChartFunctionalityTest(unittest.TestCase):
                     0,
                     "Precipitation dataset should have data points",
                 )
-                print("✅ Both temperature and precipitation data found")
+                print("[OK] Both temperature and precipitation data found")
             else:
                 print(
-                    "⚠️  Only temperature data found (may be normal if no precipitation)"
+                    "[WARN]  Only temperature data found (may be normal if no precipitation)"
                 )
         else:
             self.fail(f"Chart initialization failed: {chart_info.get('error')}")
@@ -226,10 +226,10 @@ class ChartFunctionalityTest(unittest.TestCase):
             has_error = any(indicator in error_text for indicator in error_indicators)
 
             if has_error:
-                print(f"⚠️  Day {day_index} shows error: {error_text}")
+                print(f"[WARN]  Day {day_index} shows error: {error_text}")
                 # Don't fail immediately - collect all results
             else:
-                print(f"✅ Day {day_index} loaded successfully")
+                print(f"[OK] Day {day_index} loaded successfully")
 
             # Verify chart data exists
             chart_check_script = f"""
@@ -350,9 +350,9 @@ class ChartFunctionalityTest(unittest.TestCase):
 
                 if alignment_diff <= alignment_tolerance:
                     aligned_count += 1
-                    print(f"   ✅ Day {day} alignment OK")
+                    print(f"   [OK] Day {day} alignment OK")
                 else:
-                    print(f"   ⚠️  Day {day} alignment off by {alignment_diff:.1f}px")
+                    print(f"   [WARN]  Day {day} alignment off by {alignment_diff:.1f}px")
 
         # At least 80% of elements should be properly aligned
         min_aligned = max(1, int(len(icon_positions) * 0.8))
@@ -474,12 +474,12 @@ class ChartFunctionalityTest(unittest.TestCase):
 
         # Report results
         if issues_found:
-            print("\n❌ Issues found in integration test:")
+            print("\n[FAIL] Issues found in integration test:")
             for issue in issues_found:
                 print(f"   - {issue}")
             self.fail(f"Integration test failed with {len(issues_found)} issues")
         else:
-            print("\n✅ Integration test passed - all issues resolved")
+            print("\n[OK] Integration test passed - all issues resolved")
 
     def test_05_chart_data_persistence_across_days(self):
         """
@@ -593,7 +593,7 @@ def run_comprehensive_tests():
             f"💥 {len(result.failures)} test(s) failed, {len(result.errors)} error(s)"
         )
         for test, error in result.failures + result.errors:
-            print(f"   ❌ {test}: {error.split(chr(10))[0]}")
+            print(f"   [FAIL] {test}: {error.split(chr(10))[0]}")
 
     return result.wasSuccessful()
 
@@ -603,7 +603,7 @@ if __name__ == "__main__":
         success = run_comprehensive_tests()
         sys.exit(0 if success else 1)
     except KeyboardInterrupt:
-        print("\n⚠️  Tests interrupted by user")
+        print("\n[WARN]  Tests interrupted by user")
         sys.exit(1)
     except Exception as e:
         print(f"\n💥 Test execution failed: {e}")

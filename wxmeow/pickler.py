@@ -176,10 +176,10 @@ def test_filename_sanitization():
     for original, expected in test_cases:
         try:
             result = sanitize_filename(original)
-            status = "✓" if result == expected else "✗"
+            status = "PASS" if result == expected else "FAIL"
             print(f"{status} '{original}' -> '{result}' (expected: '{expected}')")
         except Exception as e:
-            print(f"✗ '{original}' -> ERROR: {e}")
+            print(f"FAIL '{original}' -> ERROR: {e}")
 
     return True
 

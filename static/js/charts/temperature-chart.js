@@ -103,11 +103,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Helper function to check if dark mode is active
-  function isDarkMode() {
-    return document.documentElement.getAttribute("data-theme") === "dark";
-  }
-
   // Function to create or update the temperature chart
   function createTemperatureChart(dayIndex) {
     console.log(`Creating/updating chart for day ${dayIndex}`);
@@ -195,7 +190,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return hourA - hourB;
     });
 
-    // Create time-based data points instead of just labels
+    // Create time-based data points for both temperature and precipitation
     const chartData = filteredData.map((item, index) => {
       const date = new Date(item.time);
       const hour = date.getHours();
@@ -210,6 +205,21 @@ document.addEventListener("DOMContentLoaded", function () {
             : null,
         time: item.time,
         condition: item.condition || "",
+      };
+    });
+
+    // Prepare precipitation data
+    const precipData = filteredData.map((item, index) => {
+      const date = new Date(item.time);
+      const hour = date.getHours();
+      const precipValue = item.precip || item.precipitation || 0;
+      console.debug(
+        `[DEBUG] Item ${index}: hour ${hour}, precip ${precipValue}%`,
+      );
+      return {
+        x: hour,
+        y: precipValue,
+        time: item.time,
       };
     });
 
@@ -237,17 +247,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Set up gradient for the chart
     const ctx = canvas.getContext("2d");
-    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    // Simple, accessible colors - spartan theme
+    const tempGradient = ctx.createLinearGradient(0, 0, 0, 300);
+    const precipGradient = ctx.createLinearGradient(0, 0, 0, 300);
 
-    if (isDarkMode()) {
-      gradient.addColorStop(0, "rgba(255, 159, 64, 0.7)");
-      gradient.addColorStop(0.5, "rgba(255, 159, 64, 0.3)");
-      gradient.addColorStop(1, "rgba(255, 159, 64, 0.05)");
-    } else {
-      gradient.addColorStop(0, "rgba(66, 133, 244, 0.7)");
-      gradient.addColorStop(0.5, "rgba(66, 133, 244, 0.3)");
-      gradient.addColorStop(1, "rgba(66, 133, 244, 0.05)");
-    }
+    // Temperature: dark gray/black - main data
+    tempGradient.addColorStop(0, "rgba(60, 60, 60, 0.6)");
+    tempGradient.addColorStop(0.5, "rgba(60, 60, 60, 0.3)");
+    tempGradient.addColorStop(1, "rgba(60, 60, 60, 0.1)");
+
+    // Precipitation: muted red - secondary data
+    precipGradient.addColorStop(0, "rgba(180, 60, 60, 0.5)");
+    precipGradient.addColorStop(0.5, "rgba(180, 60, 60, 0.25)");
+    precipGradient.addColorStop(1, "rgba(180, 60, 60, 0.05)");
 
     // Create the chart
     currentChart = new Chart(ctx, {
@@ -258,23 +270,35 @@ document.addEventListener("DOMContentLoaded", function () {
             label: "Temperature (°F)",
             data: chartData,
             spanGaps: true,
-            backgroundColor: gradient,
-            borderColor: isDarkMode()
-              ? "rgba(255, 159, 64, 1)"
-              : "rgba(66, 133, 244, 1)",
-            borderWidth: 3,
-            pointBackgroundColor: isDarkMode()
-              ? "rgba(255, 159, 64, 1)"
-              : "rgba(66, 133, 244, 1)",
-            pointBorderColor: isDarkMode() ? "#333" : "#fff",
-            pointHoverBackgroundColor: isDarkMode() ? "#333" : "#fff",
-            pointHoverBorderColor: isDarkMode()
-              ? "rgba(255, 159, 64, 1)"
-              : "rgba(66, 133, 244, 1)",
-            pointRadius: 4,
-            pointHoverRadius: 7,
-            tension: 0.4,
+            backgroundColor: tempGradient,
+            borderColor: "#3c3c3c",
+            borderWidth: 2,
+            pointBackgroundColor: "#3c3c3c",
+            pointBorderColor: "#fff",
+            pointHoverBackgroundColor: "#3c3c3c", 
+            pointHoverBorderColor: "#000",
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
             fill: true,
+            yAxisID: 'y',
+          },
+          {
+            label: "Precipitation (%)",
+            data: precipData,
+            spanGaps: true,
+            backgroundColor: precipGradient,
+            borderColor: "#b43c3c",
+            borderWidth: 2,
+            pointBackgroundColor: "#b43c3c",
+            pointBorderColor: "#fff", 
+            pointHoverBackgroundColor: "#b43c3c",
+            pointHoverBorderColor: "#000",
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            fill: true,
+            yAxisID: 'y1',
           },
         ],
       },
@@ -289,152 +313,145 @@ document.addEventListener("DOMContentLoaded", function () {
             bottom: 10,
           },
         },
-        color: isDarkMode() ? "#e0e0e0" : "#333333",
+        color: "#333333",
         animation: {
-          duration: 1200,
+          duration: 400,
           easing: "easeOutQuart",
         },
         hover: {
           mode: "nearest",
           intersect: false,
-          animationDuration: 300,
+          animationDuration: 200,
         },
         plugins: {
           legend: {
-            display: false,
+            display: true,
+            position: 'top',
+            labels: {
+              usePointStyle: true,
+              color: "#333333",
+              padding: 20,
+              font: {
+                size: 12,
+              },
+            },
           },
           tooltip: {
-            backgroundColor: isDarkMode()
-              ? "rgba(30, 30, 30, 0.9)"
-              : "rgba(255, 255, 255, 0.95)",
-            titleColor: isDarkMode() ? "#fff" : "#333",
-            bodyColor: isDarkMode() ? "#fff" : "#333",
-            borderColor: isDarkMode() ? "#666" : "#ccc",
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            titleColor: "#333",
+            bodyColor: "#333",
+            borderColor: "#ccc",
             borderWidth: 1,
-            padding: 12,
-            cornerRadius: 6,
+            padding: 8,
+            cornerRadius: 4,
             displayColors: false,
             callbacks: {
               label: function (context) {
-                const dataPoint = context.raw;
-                const temp = dataPoint.y;
-                const condition = dataPoint.condition || "Unknown";
-
-                // Handle null/missing temperature data
-                if (temp === null || temp === undefined) {
-                  return [
-                    `Temperature: No data available`,
-                    `Condition: ${condition}`,
-                  ];
+                const datasetLabel = context.dataset.label;
+                const value = context.raw.y;
+                
+                if (value === null || value === undefined) {
+                  return `${datasetLabel}: No data`;
                 }
-
-                const formattedTemp = `${temp}°F`;
-                return [
-                  `Temperature: ${formattedTemp}`,
-                  `Condition: ${condition}`,
-                ];
+                
+                if (datasetLabel.includes("Precipitation")) {
+                  return `${datasetLabel}: ${value}%`;
+                } else {
+                  return `${datasetLabel}: ${value}°F`;
+                }
               },
               title: function (tooltipItems) {
-                // Format the time in a more readable way
-                try {
-                  const dataPoint = tooltipItems[0].raw;
-                  const date = new Date(dataPoint.time);
-                  return date.toLocaleTimeString([], {
-                    weekday: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
-                } catch (e) {
-                  const hour = tooltipItems[0].raw.x;
-                  if (hour === 0) return "12:00 AM";
-                  if (hour === 12) return "12:00 PM";
-                  if (hour < 12) return `${hour}:00 AM`;
-                  return `${hour - 12}:00 PM`;
-                }
+                const hour = tooltipItems[0].raw.x;
+                if (hour === 0) return "12:00 AM";
+                if (hour === 12) return "12:00 PM";
+                if (hour < 12) return `${hour}:00 AM`;
+                return `${hour - 12}:00 PM`;
               },
             },
           },
           title: {
             display: true,
-            text: `Hourly Temperature - ${formatDate(selectedDate)}`,
-            color: isDarkMode() ? "#e0e0e0" : "#333333",
+            text: `Hourly Forecast - ${formatDate(selectedDate)}`,
+            color: "#333333",
             font: {
-              size: 16,
+              size: 14,
             },
           },
         },
         scales: {
           y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
             beginAtZero: false,
             title: {
               display: true,
               text: "Temperature (°F)",
-              color: isDarkMode() ? "#e0e0e0" : "#333333",
+              color: "#333333",
             },
             ticks: {
-              color: isDarkMode() ? "#e0e0e0" : "#333333",
+              color: "#333333",
             },
             grid: {
-              color: isDarkMode()
-                ? "rgba(255, 255, 255, 0.1)"
-                : "rgba(0, 0, 0, 0.1)",
+              color: "rgba(0, 0, 0, 0.1)",
+            },
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            beginAtZero: true,
+            max: 100,
+            title: {
+              display: true,
+              text: "Precipitation (%)",
+              color: "#333333",
+            },
+            ticks: {
+              color: "#333333",
+            },
+            grid: {
+              drawOnChartArea: false,
             },
           },
           x: {
             title: {
               display: true,
               text: "Time of Day",
-              color: isDarkMode() ? "#e0e0e0" : "#333333",
+              color: "#333333",
             },
             type: "linear",
             position: "bottom",
-            min: -0.5,
-            max: 23.5,
+            min: 0,
+            max: 23,
             ticks: {
-              color: isDarkMode() ? "#e0e0e0" : "#333333",
-              stepSize: 2,
+              color: "#333333",
+              stepSize: 3,
               callback: function (value) {
-                // Show key hours with special formatting
                 if (value === 0) return "12 AM";
+                if (value === 3) return "3 AM"; 
                 if (value === 6) return "6 AM";
-                if (value === 12) return "🌞 12 PM";
+                if (value === 9) return "9 AM";
+                if (value === 12) return "12 PM";
+                if (value === 15) return "3 PM";
                 if (value === 18) return "6 PM";
-                if (value % 2 === 0) {
-                  // Format other even hours
-                  if (value < 12) return `${value} AM`;
-                  if (value > 12) return `${value - 12} PM`;
-                }
+                if (value === 21) return "9 PM";
                 return "";
               },
             },
             grid: {
               display: true,
-              drawOnChartArea: true,
               color: function (context) {
                 const value = context.tick.value;
-                // Emphasize noon grid line
-                if (value === 12) {
-                  return isDarkMode()
-                    ? "rgba(255, 159, 64, 0.5)"
-                    : "rgba(66, 133, 244, 0.5)";
+                // Emphasize midnight and noon
+                if (value === 0 || value === 12) {
+                  return "rgba(0, 0, 0, 0.3)";
                 }
                 // Show grid lines for every 6 hours
                 if (value % 6 === 0) {
-                  return isDarkMode()
-                    ? "rgba(255, 255, 255, 0.2)"
-                    : "rgba(0, 0, 0, 0.2)";
+                  return "rgba(0, 0, 0, 0.15)";
                 }
-                return isDarkMode()
-                  ? "rgba(255, 255, 255, 0.05)"
-                  : "rgba(0, 0, 0, 0.05)";
-              },
-              lineWidth: function (context) {
-                const value = context.tick.value;
-                // Make noon grid line thicker
-                if (value === 12) return 3;
-                // Make 6-hour marks slightly thicker
-                if (value % 6 === 0) return 1.5;
-                return 1;
+                return "rgba(0, 0, 0, 0.05)";
               },
             },
           },
@@ -507,19 +524,16 @@ document.addEventListener("DOMContentLoaded", function () {
     );
 
     console.debug("[DEBUG] Target date:", targetDate);
-    console.debug(`[DEBUG] User timezone: ${userTimezone}`);
-    console.debug("[DEBUG] Target date in local timezone:", targetDateLocal);
     console.debug("[DEBUG] First hourly data item:", hourlyData[0]);
-    const targetDateStr = targetDateLocal.toLocaleDateString("en-CA"); // YYYY-MM-DD format
-    const targetDateDay = targetDate.getDate();
-    const targetMonth = targetDate.getMonth() + 1; // JavaScript months are 0-indexed
+    
+    const targetDateStr = targetDate.toISOString().split("T")[0];
 
-    // Filter data by comparing dates in local timezone
+    // Filter data by comparing dates - simplified approach
     let filteredData = hourlyData.filter((item) => {
       try {
         if (!item.time) return false;
 
-        // Parse the date from the time field - assume it might be UTC
+        // Parse the date from the time field
         const itemDate = new Date(item.time);
 
         // Check if it's a valid date
@@ -528,25 +542,20 @@ document.addEventListener("DOMContentLoaded", function () {
           return false;
         }
 
-        // Convert to local timezone for comparison
-        const localItemDate = new Date(
-          itemDate.toLocaleString("en-US", { timeZone: userTimezone }),
-        );
+        // Compare by ISO date string (most reliable)
+        const itemDateStr = itemDate.toISOString().split("T")[0];
+        const matchesISO = itemDateStr === targetDateStr;
 
-        // Create date strings for comparison (local timezone)
-        const itemDateStr = localItemDate.toLocaleDateString("en-CA"); // YYYY-MM-DD format
-        const matchesDateStr = itemDateStr === targetDateStr;
-
-        // Compare by day and month as fallback (in local timezone)
+        // Compare by day and month as fallback
         const matchesDay =
-          localItemDate.getDate() === targetDateDay &&
-          localItemDate.getMonth() + 1 === targetMonth;
+          itemDate.getDate() === targetDate.getDate() &&
+          itemDate.getMonth() === targetDate.getMonth();
 
         console.debug(
-          `[DEBUG] Item time: ${item.time}, Local time: ${localItemDate.toISOString()}, Target: ${targetDateStr}, Matches: ${matchesDateStr || matchesDay}`,
+          `[DEBUG] Item time: ${item.time}, Item date: ${itemDateStr}, Target: ${targetDateStr}, Matches: ${matchesISO || matchesDay}`,
         );
 
-        return matchesDateStr || matchesDay;
+        return matchesISO || matchesDay;
       } catch (e) {
         console.debug("[DEBUG] Error parsing date:", e, item);
         return false;
@@ -585,27 +594,39 @@ document.addEventListener("DOMContentLoaded", function () {
       return ensureFullDayCoverage(filteredData, targetDate);
     }
 
-    // Third attempt: if we're showing today (day 0), show the first 24 hours of data
+    // Third attempt: if we're showing today (day 0), show available data from current time
     const localToday = new Date();
     const todayStr = localToday.toLocaleDateString("en-CA");
     if (targetDateStr === todayStr) {
-      console.debug(`[DEBUG] Showing today's data (${todayStr})`);
+      console.debug(`[DEBUG] Showing today's data (${todayStr}) - may start from current time`);
       const dayData = hourlyData.slice(0, Math.min(24, hourlyData.length));
       return ensureFullDayCoverage(dayData, targetDate);
     }
 
-    // Fourth attempt: if we're showing day N, show hours (N*24) through ((N+1)*24)
-    // But first convert all times to local timezone to find the right slice
+    // Fourth attempt: For future days, calculate proper midnight-to-midnight periods
     const dayDiff = Math.floor(
       (targetDate - localToday) / (24 * 60 * 60 * 1000),
     );
-    if (dayDiff >= 0 && dayDiff < 5) {
+    
+    if (dayDiff > 0 && dayDiff < 5) {
       console.debug(
-        `[DEBUG] Attempting day offset method for day difference: ${dayDiff}`,
+        `[DEBUG] Future day ${dayDiff}: finding midnight-to-midnight hours`,
       );
-      const startIndex = Math.min(dayDiff * 24, hourlyData.length - 1);
-      const endIndex = Math.min(startIndex + 24, hourlyData.length);
-      const dayData = hourlyData.slice(startIndex, endIndex);
+      
+      // For future days, we need to account for the fact that today's data 
+      // might start at current hour, not midnight
+      const currentHour = new Date().getHours();
+      const todayHoursRemaining = 24 - currentHour;
+      
+      // Future day data should start after today's remaining hours
+      const futureStartIndex = todayHoursRemaining + ((dayDiff - 1) * 24);
+      const futureEndIndex = Math.min(futureStartIndex + 24, hourlyData.length);
+      
+      console.debug(
+        `[DEBUG] Future day ${dayDiff}: startIndex=${futureStartIndex}, endIndex=${futureEndIndex}, current hour=${currentHour}`,
+      );
+      
+      const dayData = hourlyData.slice(futureStartIndex, futureEndIndex);
       return ensureFullDayCoverage(dayData, targetDate);
     }
 
@@ -665,20 +686,10 @@ document.addEventListener("DOMContentLoaded", function () {
           `[DEBUG] Hour ${hour}: using existing data (${existingData.temperature}°F)`,
         );
       } else {
-        // Create realistic placeholder data
-        const baseTemp = 65;
-        // Create temperature curve: lowest at 6 AM, highest at 2 PM
-        const hourlyVariation = Math.sin(((hour - 14) * Math.PI) / 12) * 15;
-        const temperature = Math.round(baseTemp + hourlyVariation);
-
-        fullDayData.push({
-          time: hourDate.toISOString(),
-          temperature: temperature,
-          condition: "Forecast Unavailable",
-        });
-        console.debug(
-          `[DEBUG] Hour ${hour}: created placeholder (${temperature}°F)`,
-        );
+        // Don't create placeholder data - just skip missing hours
+        // This prevents synthetic sine wave temperature data
+        console.debug(`[DEBUG] Hour ${hour}: no data available, skipping`);
+        continue;
       }
     }
 
@@ -851,7 +862,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    fetch(`/api/weather/${encodeURIComponent(location)}`)
+    fetch(`/api/hourly/${encodeURIComponent(location)}`)
       .then((response) => {
         if (!response.ok) throw new Error("Weather API error");
         return response.json();
@@ -859,10 +870,13 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((data) => {
         console.debug("[DEBUG] Raw API response:", data);
 
-        if (data && data.hourly_forecast) {
-          let forecastData;
-
-          // Handle different response formats
+        // The API now returns the hourly data directly as an array
+        let forecastData;
+        
+        if (Array.isArray(data)) {
+          forecastData = data;
+        } else if (data && data.hourly_forecast) {
+          // Legacy support for wrapped format
           if (typeof data.hourly_forecast === "string") {
             console.warn("Hourly forecast is a string, not an array");
             forecastData = [];
@@ -875,6 +889,10 @@ document.addEventListener("DOMContentLoaded", function () {
             );
             forecastData = [];
           }
+        } else {
+          console.warn("No hourly forecast data in response");
+          forecastData = [];
+        }
 
           console.log(
             `Received ${forecastData.length} hourly forecast data points`,
@@ -910,12 +928,6 @@ document.addEventListener("DOMContentLoaded", function () {
               initialDayIndex,
             );
           }
-        } else {
-          handleNoForecastData(
-            "No hourly forecast data available in API response",
-            initialDayIndex,
-          );
-        }
       })
       .catch((error) => {
         console.error("Error fetching hourly forecast data:", error);

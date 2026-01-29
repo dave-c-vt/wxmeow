@@ -196,7 +196,7 @@ def main():
         print("The chart should display properly.")
         print("If it's still not working, check browser console for errors.")
     else:
-        print("\n⚠️ ISSUES FOUND!")
+        print("\n! ISSUES FOUND!")
         print("Fix the failing components above.")
 
     print("\n💡 NEXT STEPS:")

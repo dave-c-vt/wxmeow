@@ -268,7 +268,7 @@ class wxmeow:
                     weather_emoji = self._get_weather_emoji(img_src)
                 else:
                     # Use placeholder for empty images
-                    weather_emoji = "⚡"
+                    weather_desc = "thunderstorm"
 
                 # Simplified click handler
                 onclick_handler = f"selectDay({i}); return false;"
@@ -318,7 +318,7 @@ class wxmeow:
                     + "style='cursor:pointer; display:block; padding: 15px; text-align:center; font-size:48px; border-radius:4px;' "
                     + 'onclick="'
                     + onclick_handler
-                    + '">⚡</span>'
+                    + '">thunderstorm</span>'
                     + td[1]
                 )
         futurepics += tr[1] + "</table>"
@@ -546,7 +546,7 @@ class wxmeow:
         condition = "unknown"
         try:
             if not icon_url:
-                return "🌈"
+                return "unknown"
 
             url_lower = str(icon_url).lower()
 
@@ -592,30 +592,30 @@ class wxmeow:
 
         except Exception as e:
             logger.warning(f"Error processing weather icon: {str(e)}")
-            return "🌈"
+            return "unknown"
 
-        # Map conditions to emojis - more diverse set of weather emojis
-        emoji_map = {
-            "clear": "☀️",
-            "clear_night": "🌙",
-            "partly_cloudy": "⛅",
-            "partly_cloudy_night": "🌤️",
-            "cloudy": "☁️",
-            "rain": "🌧️",
-            "shower": "🌦️",
-            "snow": "❄️",
-            "sleet": "🌨️",
-            "storm": "⛈️",
-            "lightning": "⚡",
-            "fog": "🌫️",
-            "windy": "💨",
-            "tornado": "🌪️",
-            "hot": "🔥",
-            "hurricane": "🌀",
-            "unknown": "🌈",
+        # Map conditions to simple text descriptions
+        text_map = {
+            "clear": "clear",
+            "clear_night": "clear",
+            "partly_cloudy": "partly-cloudy",
+            "partly_cloudy_night": "partly-cloudy",
+            "cloudy": "cloudy",
+            "rain": "rain",
+            "shower": "light-rain",
+            "snow": "snow",
+            "sleet": "snow",
+            "storm": "thunderstorm",
+            "lightning": "thunderstorm",
+            "fog": "cloudy",
+            "windy": "windy",
+            "tornado": "windy",
+            "hot": "clear",
+            "hurricane": "thunderstorm",
+            "unknown": "unknown",
         }
 
-        return emoji_map.get(condition, "🌈")
+        return text_map.get(condition, "unknown")
 
     def _get_weather_condition_text(self, icon_url: str) -> str:
         """

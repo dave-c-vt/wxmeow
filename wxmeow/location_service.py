@@ -1,6 +1,7 @@
 """
 Location Service for wxmeow.
 Uses Nominatim from OpenStreetMap to geocode locations.
+Includes in-memory caching for faster repeated lookups.
 """
 
 import logging
@@ -29,7 +30,7 @@ class GeocodeError(LocationServiceError):
 
 
 class LocationService:
-    """Service for geocoding locations using Nominatim from OpenStreetMap"""
+    """Service for geocoding locations using Nominatim from OpenStreetMap with caching"""
 
     BASE_URL = "https://nominatim.openstreetmap.org/search"
     USER_AGENT = "wxmeow/1.0"
@@ -37,7 +38,64 @@ class LocationService:
     def __init__(self):
         # Add rate limiting to respect Nominatim's usage policy
         self.last_request_time = 0
-        self.min_delay = 1.0  # minimum 1 second between requests
+        self.min_delay = 0.8  # Reduced from 1.0 to 0.8 for slightly faster requests
+        # In-memory cache for geocoding results
+        self._cache = {}
+        self._cache_max_age = 7200  # Increased from 1 hour to 2 hours for better caching
+        # Persistent cache file for long-term storage
+        self._persistent_cache_file = "location_cache.pkl"
+        self._load_persistent_cache()
+
+    def _load_persistent_cache(self) -> None:
+        """Load coordinates cache from persistent storage"""
+        try:
+            import pickle
+            import os
+            if os.path.exists(self._persistent_cache_file):
+                with open(self._persistent_cache_file, 'rb') as f:
+                    self._cache = pickle.load(f)
+                    # Clean expired entries
+                    current_time = time.time()
+                    expired_keys = [k for k, (coords, timestamp) in self._cache.items() 
+                                   if current_time - timestamp > self._cache_max_age]
+                    for key in expired_keys:
+                        del self._cache[key]
+                    logger.debug(f"Loaded {len(self._cache)} cached coordinates, removed {len(expired_keys)} expired entries")
+        except Exception as e:
+            logger.debug(f"Could not load persistent coordinate cache: {e}")
+            self._cache = {}
+
+    def _save_persistent_cache(self) -> None:
+        """Save coordinates cache to persistent storage"""
+        try:
+            import pickle
+            with open(self._persistent_cache_file, 'wb') as f:
+                pickle.dump(self._cache, f)
+        except Exception as e:
+            logger.debug(f"Could not save persistent coordinate cache: {e}")
+
+    def _get_from_cache(self, location: str) -> Optional[Tuple[float, float]]:
+        """Get coordinates from cache if available and not expired"""
+        cache_key = location.lower().strip()
+        if cache_key in self._cache:
+            coords, timestamp = self._cache[cache_key]
+            if time.time() - timestamp < self._cache_max_age:
+                logger.debug(f"Cache hit for location: {location}")
+                return coords
+            else:
+                # Remove expired entry
+                del self._cache[cache_key]
+                logger.debug(f"Cache expired for location: {location}")
+        return None
+
+    def _store_in_cache(self, location: str, coordinates: Tuple[float, float]) -> None:
+        """Store coordinates in cache"""
+        cache_key = location.lower().strip()
+        self._cache[cache_key] = (coordinates, time.time())
+        logger.debug(f"Cached coordinates for location: {location}")
+        # Periodically save to persistent storage (every 10 entries)
+        if len(self._cache) % 10 == 0:
+            self._save_persistent_cache()
 
     def _make_request(self, params: Dict[str, str]) -> List[Dict[str, Any]]:
         """Make a request to the Nominatim API with rate limiting"""
@@ -77,7 +135,7 @@ class LocationService:
 
     def geocode(self, location: str) -> Optional[Tuple[float, float]]:
         """
-        Geocode a location string to latitude and longitude.
+        Geocode a location string to latitude and longitude with caching.
 
         Args:
             location: Location string (e.g., "New York, NY" or "Paris, France")
@@ -85,9 +143,16 @@ class LocationService:
         Returns:
             Tuple of (latitude, longitude) if successful, None otherwise
         """
+        # Check cache first
+        cached_result = self._get_from_cache(location)
+        if cached_result:
+            return cached_result
+
         # Check if the input is already lat/lon coordinates
         lat_lon = self._parse_latlon(location)
         if lat_lon:
+            # Still cache coordinate lookups to avoid re-parsing
+            self._store_in_cache(location, lat_lon)
             return lat_lon
 
         # Check if the input is a zip code
@@ -119,7 +184,10 @@ class LocationService:
             logger.info(
                 f"Found coordinates for '{location}': {latitude}, {longitude} ({display_name})"
             )
-            return (latitude, longitude)
+            coordinates = (latitude, longitude)
+            # Cache the result
+            self._store_in_cache(location, coordinates)
+            return coordinates
         except (KeyError, ValueError) as e:
             logger.error(f"Error extracting coordinates from response: {e}")
             return None

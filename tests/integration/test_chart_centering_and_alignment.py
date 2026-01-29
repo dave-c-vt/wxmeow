@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 try:
     from wxmeow.wx2json_noaa import wxmeow
 except ImportError as e:
-    print(f"❌ Cannot import wxmeow module: {e}")
+    print(f"[FAIL] Cannot import wxmeow module: {e}")
     print("Make sure you're running this from the wxmeow directory")
     sys.exit(1)
 
@@ -48,9 +48,9 @@ class ChartCenteringAndAlignmentTest:
         # Load weather data once
         try:
             self.weather_data = wxmeow(self.test_location)
-            print("✅ Weather data loaded successfully")
+            print("[OK] Weather data loaded successfully")
         except Exception as e:
-            print(f"❌ Failed to load weather data: {e}")
+            print(f"[FAIL] Failed to load weather data: {e}")
             return False
 
         # Run all tests
@@ -71,7 +71,7 @@ class ChartCenteringAndAlignmentTest:
             except Exception as e:
                 error_msg = f"Test {test_method.__name__} failed with exception: {e}"
                 self.errors.append(error_msg)
-                print(f"❌ {error_msg}")
+                print(f"[FAIL] {error_msg}")
 
         # Print summary
         self.print_summary()
@@ -79,7 +79,7 @@ class ChartCenteringAndAlignmentTest:
 
     def test_chart_centering_configuration(self):
         """Test that chart is configured to center noon properly."""
-        print("\n📊 TESTING CHART CENTERING CONFIGURATION")
+        print("\n[*] TESTING CHART CENTERING CONFIGURATION")
         print("-" * 50)
 
         # Read the JavaScript chart file
@@ -90,16 +90,16 @@ class ChartCenteringAndAlignmentTest:
         except FileNotFoundError:
             error_msg = f"Chart JavaScript file not found: {chart_js_path}"
             self.errors.append(error_msg)
-            print(f"❌ {error_msg}")
+            print(f"[FAIL] {error_msg}")
             return
 
         # Check for timezone detection
         if "Intl.DateTimeFormat().resolvedOptions().timeZone" in js_content:
-            success_msg = "✅ Browser timezone detection implemented"
+            success_msg = "[OK] Browser timezone detection implemented"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Browser timezone detection missing"
+            error_msg = "[FAIL] Browser timezone detection missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
@@ -109,58 +109,58 @@ class ChartCenteringAndAlignmentTest:
             and "min: 0" in js_content
             and "max: 23" in js_content
         ):
-            success_msg = "✅ Proper time scale configuration (0-23 hours)"
+            success_msg = "[OK] Proper time scale configuration (0-23 hours)"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Missing proper time scale configuration"
+            error_msg = "[FAIL] Missing proper time scale configuration"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
-        # Check for noon emphasis
-        if "🌞" in js_content and "value === 12" in js_content:
-            success_msg = "✅ Noon emphasis with sun emoji implemented"
+        # Check for noon emphasis (updated to not require emoji)
+        if "value === 12" in js_content:
+            success_msg = "[OK] Noon emphasis implemented"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Noon emphasis features missing"
+            error_msg = "[FAIL] Noon emphasis features missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
         # Check for 24-hour data structure
         if "ensureFullDayCoverage" in js_content:
-            success_msg = "✅ 24-hour data coverage function present"
+            success_msg = "[OK] 24-hour data coverage function present"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ 24-hour data coverage function missing"
+            error_msg = "[FAIL] 24-hour data coverage function missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
     def test_temperature_table_structure(self):
         """Test that temperature table structure is correct."""
-        print("\n🌡️  TESTING TEMPERATURE TABLE STRUCTURE")
+        print("\n[*] TESTING TEMPERATURE TABLE STRUCTURE")
         print("-" * 50)
 
         html_content = self.weather_data.futuremeow
 
         # Check for weather-forecast-table class
         if 'class="weather-forecast-table"' in html_content:
-            success_msg = "✅ Weather forecast table class present"
+            success_msg = "[OK] Weather forecast table class present"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Weather forecast table class missing"
+            error_msg = "[FAIL] Weather forecast table class missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
         # Check for temperature cells within the table
         if 'class="temperature-cell' in html_content:
-            success_msg = "✅ Temperature cells with proper CSS classes"
+            success_msg = "[OK] Temperature cells with proper CSS classes"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Temperature cells missing proper CSS classes"
+            error_msg = "[FAIL] Temperature cells missing proper CSS classes"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
@@ -170,14 +170,14 @@ class ChartCenteringAndAlignmentTest:
 
         if len(temp_matches) >= 5:
             success_msg = (
-                f"✅ Found {len(temp_matches)} properly formatted temperature values"
+                f"[OK] Found {len(temp_matches)} properly formatted temperature values"
             )
             self.successes.append(success_msg)
             print(f"   {success_msg}")
             print(f"      Temperatures: {[t + '°F' for t in temp_matches[:5]]}")
         else:
             error_msg = (
-                f"❌ Only found {len(temp_matches)} temperature values, expected 5+"
+                f"[FAIL] Only found {len(temp_matches)} temperature values, expected 5+"
             )
             self.errors.append(error_msg)
             print(f"   {error_msg}")
@@ -190,11 +190,11 @@ class ChartCenteringAndAlignmentTest:
             table_content = table_match.group(1)
             temps_in_table = len(re.findall(temp_span_pattern, table_content))
             if temps_in_table >= 5:
-                success_msg = "✅ Temperature values are properly contained within the forecast table"
+                success_msg = "[OK] Temperature values are properly contained within the forecast table"
                 self.successes.append(success_msg)
                 print(f"   {success_msg}")
             else:
-                error_msg = f"❌ Only {temps_in_table} temperatures found within table structure"
+                error_msg = f"[FAIL] Only {temps_in_table} temperatures found within table structure"
                 self.errors.append(error_msg)
                 print(f"   {error_msg}")
 
@@ -216,27 +216,27 @@ class ChartCenteringAndAlignmentTest:
 
         for selector, rule in css_checks:
             if selector in html_content and rule in html_content:
-                success_msg = f"✅ CSS rule found: {selector} → {rule}"
+                success_msg = f"[OK] CSS rule found: {selector} → {rule}"
                 self.successes.append(success_msg)
                 print(f"   {success_msg}")
             else:
-                error_msg = f"❌ CSS rule missing: {selector} → {rule}"
+                error_msg = f"[FAIL] CSS rule missing: {selector} → {rule}"
                 self.errors.append(error_msg)
                 print(f"   {error_msg}")
 
         # Check for responsive CSS
         if "@media (max-width: 768px)" in html_content:
-            success_msg = "✅ Responsive CSS for mobile devices present"
+            success_msg = "[OK] Responsive CSS for mobile devices present"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Responsive CSS missing"
+            error_msg = "[FAIL] Responsive CSS missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
     def test_chart_timezone_handling(self):
         """Test timezone handling in chart JavaScript."""
-        print("\n🌍 TESTING CHART TIMEZONE HANDLING")
+        print("\nTESTING CHART TIMEZONE HANDLING")
         print("-" * 50)
 
         chart_js_path = "wxmeow/static/js/charts/temperature-chart.js"
@@ -246,7 +246,7 @@ class ChartCenteringAndAlignmentTest:
         except FileNotFoundError:
             error_msg = "Chart JavaScript file not found"
             self.errors.append(error_msg)
-            print(f"❌ {error_msg}")
+            print(f"[FAIL] {error_msg}")
             return
 
         # Check for timezone functions
@@ -259,11 +259,11 @@ class ChartCenteringAndAlignmentTest:
 
         for func in timezone_functions:
             if f"function {func}" in js_content:
-                success_msg = f"✅ Timezone function present: {func}"
+                success_msg = f"[OK] Timezone function present: {func}"
                 self.successes.append(success_msg)
                 print(f"   {success_msg}")
             else:
-                error_msg = f"❌ Timezone function missing: {func}"
+                error_msg = f"[FAIL] Timezone function missing: {func}"
                 self.errors.append(error_msg)
                 print(f"   {error_msg}")
 
@@ -276,18 +276,18 @@ class ChartCenteringAndAlignmentTest:
 
         for pattern in timezone_patterns:
             if re.search(pattern, js_content):
-                success_msg = f"✅ Proper timezone conversion pattern found"
+                success_msg = f"[OK] Proper timezone conversion pattern found"
                 self.successes.append(success_msg)
                 print(f"   {success_msg}")
                 break
         else:
-            error_msg = "❌ No proper timezone conversion patterns found"
+            error_msg = "[FAIL] No proper timezone conversion patterns found"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
     def test_responsive_design_alignment(self):
         """Test responsive design for temperature alignment."""
-        print("\n📱 TESTING RESPONSIVE DESIGN ALIGNMENT")
+        print("\n> TESTING RESPONSIVE DESIGN ALIGNMENT")
         print("-" * 50)
 
         html_content = self.weather_data.futuremeow
@@ -303,20 +303,20 @@ class ChartCenteringAndAlignmentTest:
         for pattern in mobile_css_patterns:
             if re.search(pattern, html_content, re.IGNORECASE):
                 success_msg = (
-                    f"✅ Mobile responsive CSS pattern found: {pattern[:30]}..."
+                    f"[OK] Mobile responsive CSS pattern found: {pattern[:30]}..."
                 )
                 self.successes.append(success_msg)
                 print(f"   {success_msg}")
             else:
                 error_msg = (
-                    f"❌ Mobile responsive CSS pattern missing: {pattern[:30]}..."
+                    f"[FAIL] Mobile responsive CSS pattern missing: {pattern[:30]}..."
                 )
                 self.errors.append(error_msg)
                 print(f"   {error_msg}")
 
     def test_javascript_chart_integration(self):
         """Test JavaScript chart integration features."""
-        print("\n⚙️  TESTING JAVASCRIPT CHART INTEGRATION")
+        print("\n> TESTING JAVASCRIPT CHART INTEGRATION")
         print("-" * 50)
 
         html_content = self.weather_data.futuremeow
@@ -327,40 +327,40 @@ class ChartCenteringAndAlignmentTest:
 
         if len(chart_containers) >= 5:
             success_msg = (
-                f"✅ Found {len(chart_containers)} chart containers with proper IDs"
+                f"[OK] Found {len(chart_containers)} chart containers with proper IDs"
             )
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
             error_msg = (
-                f"❌ Only found {len(chart_containers)} chart containers, expected 5+"
+                f"[FAIL] Only found {len(chart_containers)} chart containers, expected 5+"
             )
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
         # Check for day selector click handlers
         if "onclick=" in html_content and "day-selector" in html_content:
-            success_msg = "✅ Day selector click handlers present"
+            success_msg = "[OK] Day selector click handlers present"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Day selector click handlers missing"
+            error_msg = "[FAIL] Day selector click handlers missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
         # Check for Chart.js inclusion
         if "Chart.js" in html_content or "chart.js" in html_content:
-            success_msg = "✅ Chart.js library inclusion found"
+            success_msg = "[OK] Chart.js library inclusion found"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Chart.js library inclusion missing"
+            error_msg = "[FAIL] Chart.js library inclusion missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
     def test_noon_emphasis_features(self):
         """Test noon emphasis features in the chart."""
-        print("\n☀️  TESTING NOON EMPHASIS FEATURES")
+        print("\nTESTING NOON EMPHASIS FEATURES")
         print("-" * 50)
 
         chart_js_path = "wxmeow/static/js/charts/temperature-chart.js"
@@ -370,16 +370,16 @@ class ChartCenteringAndAlignmentTest:
         except FileNotFoundError:
             error_msg = "Chart JavaScript file not found"
             self.errors.append(error_msg)
-            print(f"❌ {error_msg}")
+            print(f"[FAIL] {error_msg}")
             return
 
-        # Check for sun emoji at noon
-        if "🌞 12 PM" in js_content or '🌞" + label' in js_content:
-            success_msg = "✅ Sun emoji emphasis for noon implemented"
+        # Check for noon emphasis (updated to not require emoji)
+        if "12 PM" in js_content or "value === 12" in js_content:
+            success_msg = "[OK] Noon emphasis implemented"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Sun emoji emphasis for noon missing"
+            error_msg = "[FAIL] Noon emphasis missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
@@ -397,11 +397,11 @@ class ChartCenteringAndAlignmentTest:
                 break
 
         if grid_found:
-            success_msg = "✅ Special grid line formatting for noon found"
+            success_msg = "[OK] Special grid line formatting for noon found"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Special grid line formatting for noon missing"
+            error_msg = "[FAIL] Special grid line formatting for noon missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
@@ -422,31 +422,31 @@ class ChartCenteringAndAlignmentTest:
 
         # Check for 24-hour loop
         if "for (let hour = 0; hour < 24; hour++)" in js_content:
-            success_msg = "✅ 24-hour data structure loop found"
+            success_msg = "[OK] 24-hour data structure loop found"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ 24-hour data structure loop missing"
+            error_msg = "[FAIL] 24-hour data structure loop missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
         # Check for hour-based data point creation
         if "x: hour" in js_content and "y:" in js_content:
-            success_msg = "✅ Hour-based data point structure found"
+            success_msg = "[OK] Hour-based data point structure found"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Hour-based data point structure missing"
+            error_msg = "[FAIL] Hour-based data point structure missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
         # Check for data sorting by hour
         if "sort((a, b)" in js_content and "getHours()" in js_content:
-            success_msg = "✅ Data sorting by hour implemented"
+            success_msg = "[OK] Data sorting by hour implemented"
             self.successes.append(success_msg)
             print(f"   {success_msg}")
         else:
-            error_msg = "❌ Data sorting by hour missing"
+            error_msg = "[FAIL] Data sorting by hour missing"
             self.errors.append(error_msg)
             print(f"   {error_msg}")
 
@@ -467,18 +467,18 @@ class ChartCenteringAndAlignmentTest:
         print(f"Success Rate: {success_rate:.1f}%")
 
         if self.errors:
-            print(f"\n❌ ERRORS FOUND ({len(self.errors)}):")
+            print(f"\n[FAIL] ERRORS FOUND ({len(self.errors)}):")
             for i, error in enumerate(self.errors, 1):
                 print(f"   {i}. {error}")
 
         if len(self.errors) == 0:
             print("\n🎉 ALL TESTS PASSED!")
-            print("✅ Chart centering: Noon should be centered in plots")
-            print("✅ Temperature alignment: Temps should align with weather icons")
-            print("✅ Both fixes appear to be implemented correctly!")
+            print("[OK] Chart centering: Noon should be centered in plots")
+            print("[OK] Temperature alignment: Temps should align with weather icons")
+            print("[OK] Both fixes appear to be implemented correctly!")
         else:
             print(
-                f"\n⚠️  {len(self.errors)} issues found that may affect functionality."
+                f"\n[WARN]  {len(self.errors)} issues found that may affect functionality."
             )
 
         print("\n" + "=" * 70)
@@ -497,7 +497,7 @@ def main():
     print(f"Python Path: {sys.path[0]}")
 
     if test.weather_data:
-        print("✅ Weather data object created successfully")
+        print("[OK] Weather data object created successfully")
         # Print sample of HTML for verification
         html_sample = test.weather_data.futuremeow[:500]
         print(f"HTML Sample (first 500 chars):")

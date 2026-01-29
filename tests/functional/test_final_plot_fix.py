@@ -31,7 +31,7 @@ class FinalPlotFixTest:
 
     def log_fix(self, fix_name, status, details=""):
         """Log a fix verification result."""
-        status_symbol = "✅" if status else "❌"
+        status_symbol = "[OK]" if status else "[FAIL]"
         message = f"{status_symbol} {fix_name}: {details}"
         print(message)
 
@@ -123,7 +123,7 @@ class FinalPlotFixTest:
 
     def verify_chart_containers_fix(self):
         """Verify that chart containers are properly set up."""
-        print("\n📊 VERIFYING CHART CONTAINERS FIX")
+        print("\n[*] VERIFYING CHART CONTAINERS FIX")
         print("-" * 50)
 
         # Check for chart container elements
@@ -186,7 +186,7 @@ class FinalPlotFixTest:
 
     def verify_javascript_integration_fix(self):
         """Verify that JavaScript integration is working properly."""
-        print("\n⚙️ VERIFYING JAVASCRIPT INTEGRATION FIX")
+        print("\n> VERIFYING JAVASCRIPT INTEGRATION FIX")
         print("-" * 50)
 
         # Check for jQuery inclusion
@@ -217,7 +217,7 @@ class FinalPlotFixTest:
 
     def create_test_html_file(self):
         """Create a test HTML file to verify functionality in browser."""
-        print("\n🌐 CREATING BROWSER TEST FILE")
+        print("\nCREATING BROWSER TEST FILE")
         print("-" * 50)
 
         # Create a temporary HTML file
@@ -243,9 +243,9 @@ class FinalPlotFixTest:
         try:
             self.weather_obj = wxmeow(self.test_location)
             self.html_content = self.weather_obj.futuremeow
-            print(f"✅ Weather data loaded: {len(self.html_content)} characters")
+            print(f"[OK] Weather data loaded: {len(self.html_content)} characters")
         except Exception as e:
-            print(f"❌ Failed to load weather data: {str(e)}")
+            print(f"[FAIL] Failed to load weather data: {str(e)}")
             return False
 
         # Run all verification tests
@@ -270,7 +270,7 @@ class FinalPlotFixTest:
 
         # Final summary
         print("\n" + "=" * 60)
-        print("📊 FINAL FIX VERIFICATION SUMMARY")
+        print("[*] FINAL FIX VERIFICATION SUMMARY")
         print("=" * 60)
 
         total_fixes = len(self.fixes_verified)
@@ -281,7 +281,7 @@ class FinalPlotFixTest:
         print(f"Success Rate: {success_rate:.1f}%")
 
         if self.errors:
-            print(f"\n❌ REMAINING ISSUES ({len(self.errors)}):")
+            print(f"\n[FAIL] REMAINING ISSUES ({len(self.errors)}):")
             for error in self.errors:
                 print(f"   • {error}")
 
@@ -294,7 +294,7 @@ class FinalPlotFixTest:
             print("   3. Test clicking day selector buttons")
             print("   4. Verify charts load without 'unable to load' messages")
         else:
-            print(f"\n⚠️ PLOT FIXES INCOMPLETE!")
+            print(f"\n[WARN] PLOT FIXES INCOMPLETE!")
             print("Some issues remain that need to be addressed.")
 
         return success_rate >= 90

@@ -410,10 +410,10 @@ class SpecificFixesTest:
         print("\n" + "=" * 80)
         print("ISSUES TO FIX:")
         print("=" * 80)
-        print("1. 📊 Chart should show one at a time, not multiple")
+        print("1. [*] Chart should show one at a time, not multiple")
         print("2. 🎨 Chart needs proper axis labels and precipitation data")
         print("3. 📝 Day forecast text should appear below weather icons")
-        print("4. 📐 Temperature alignment and spacing needs fixing")
+        print("4. Temperature alignment and spacing needs fixing")
 
         return success_rate >= 75
 
@@ -424,10 +424,10 @@ def main():
     success = tester.run_all_tests()
 
     if success:
-        print("\n🎯 READY FOR FIXES: Test suite identifies specific issues to address")
+        print("\nREADY FOR FIXES: Test suite identifies specific issues to address")
     else:
         print(
-            "\n⚠️ CRITICAL ISSUES: Multiple problems found that need immediate attention"
+            "\n[WARN] CRITICAL ISSUES: Multiple problems found that need immediate attention"
         )
 
     sys.exit(0 if success else 1)

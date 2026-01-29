@@ -117,13 +117,13 @@
         </div>
 
         <div class="test-section">
-            <h3>🗓️ Day Selector Test</h3>
+            <h3>Day Selector Test</h3>
             <p>Click these buttons to test day selection:</p>
-            <button class="day-selector selected-day" onclick="selectDay(0)">Day 0 🌤️</button>
-            <button class="day-selector" onclick="selectDay(1)">Day 1 ⛅</button>
-            <button class="day-selector" onclick="selectDay(2)">Day 2 🌧️</button>
-            <button class="day-selector" onclick="selectDay(3)">Day 3 ☀️</button>
-            <button class="day-selector" onclick="selectDay(4)">Day 4 🌩️</button>
+            <button class="day-selector selected-day" onclick="selectDay(0)">Day 0 (partly-cloudy)</button>
+            <button class="day-selector" onclick="selectDay(1)">Day 1 (cloudy)</button>
+            <button class="day-selector" onclick="selectDay(2)">Day 2 (rain)</button>
+            <button class="day-selector" onclick="selectDay(3)">Day 3 (clear)</button>
+            <button class="day-selector" onclick="selectDay(4)">Day 4 (thunderstorm)</button>
         </div>
 
         <div class="test-section">
@@ -165,7 +165,7 @@
         </div>
 
         <div class="test-section">
-            <h3>🖥️ Console Log</h3>
+            <h3>Console Log</h3>
             <button onclick="clearConsole()">Clear Console</button>
             <button onclick="testAllDays()">Test All Days</button>
             <div id="console-log"></div>
@@ -296,7 +296,7 @@
             if (percentage === 100) {
                 logToConsole('🎉 ALL TESTS PASSED! Chart functionality is working correctly.', 'success');
             } else {
-                logToConsole('⚠️ Some tests failed. Check the results above.', 'warn');
+                logToConsole('! Some tests failed. Check the results above.', 'warn');
             }
         }
 

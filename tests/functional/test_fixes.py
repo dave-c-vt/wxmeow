@@ -229,7 +229,7 @@ def main():
     if failed == 0:
         print("🎉 All tests passed! The weather app fixes should be working.")
     else:
-        print("⚠️  Some tests failed. Please check the issues above.")
+        print("[WARN]  Some tests failed. Please check the issues above.")
 
     return failed == 0
 
