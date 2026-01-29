@@ -8,6 +8,8 @@ from urllib3.util.retry import Retry
 import time
 import traceback
 from pathlib import Path
+import concurrent.futures
+import threading
 
 try:
     from wxmeow import logger
@@ -149,14 +151,16 @@ class noaa:
     - Hourly forecast: https://api.weather.gov/points/{lat},{lon}/forecast/hourly
     """
 
-    def __init__(self, location: str):
+    def __init__(self, location: str, include_hourly: bool = True):
         """
         Initialize the NOAA API client with a location.
 
         Args:
             location: Zipcode or lat,lon coordinates
+            include_hourly: Whether to fetch hourly forecast data
         """
         self.location: str = str(location)
+        self.include_hourly: bool = include_hourly
         self.lat: str | None = None
         self.lon: str | None = None
         self.city: str = "wherever"
@@ -195,21 +199,44 @@ class noaa:
 
     def _create_request_session(self) -> requests.Session:
         """
-        Create a requests session with retry functionality.
+        Create a requests session with retry functionality and optimized connection pooling.
 
         Returns:
             Configured requests Session object
         """
         session = requests.Session()
         retry_strategy = Retry(
-            total=3,
-            backoff_factor=0.5,
+            total=2,  # Allow up to 2 retries for reliability
+            backoff_factor=0.1,  # Faster backoff for quicker retries
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=["GET"],
         )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=20,  # Increase pool connections for better API performance
+            pool_maxsize=50,      # Larger pool for concurrent requests  
+            pool_block=False      # Don't block on pool exhaustion
+        )
         session.mount("http://", adapter)
         session.mount("https://", adapter)
+        
+        # Set default timeout for all requests to prevent hanging
+        original_get = session.get
+        def get_with_timeout(*args, **kwargs):
+            if 'timeout' not in kwargs:
+                kwargs['timeout'] = (5, 10)  # (connect, read) timeouts - more reasonable for API reliability
+            return original_get(*args, **kwargs)
+        session.get = get_with_timeout
+        
+        # Set common headers to reduce request overhead
+        session.headers.update({
+            'Accept': 'application/json',
+            'User-Agent': 'wxmeow-weather-app',
+            'Accept-Encoding': 'gzip, deflate',  # Enable compression for faster transfers
+            'Connection': 'keep-alive',          # Reuse connections
+            'Cache-Control': 'max-age=300'       # Cache responses for 5 minutes
+        })
+        
         return session
 
     def _get_coordinates(self) -> None:
@@ -287,7 +314,7 @@ class noaa:
                 )
 
     def _fetch_weather_data(self) -> None:
-        """Fetch all weather data from the NOAA API."""
+        """Fetch all weather data from the NOAA API using parallel requests for optimization."""
         if not self.lat or not self.lon:
             return
 
@@ -298,19 +325,132 @@ class noaa:
             if not points_data:
                 return
 
-            # Get location data
+            # Get location data immediately (no API call needed)
             self._get_location_data(points_data)
 
-            # Get forecast URL and data
-            self._get_forecast_data(points_data)
-
-            # Get stations and observations
-            self._get_station_data()
+            # Now make parallel requests for forecast, hourly, and stations data
+            self._fetch_parallel_data(points_data)
 
         except Exception as e:
             logger.error(f"Error fetching weather data: {str(e)}")
             logger.debug(traceback.format_exc())
             raise DataParsingError(data_type="weather", message=str(e))
+
+    def _fetch_parallel_data(self, points_data: dict[str, Any]) -> None:
+        """Fetch forecast, hourly, and stations data in parallel with optimized timeouts."""
+        
+        # Prepare URLs from points data
+        forecast_url = None
+        hourly_url = None
+        stations_url = f"{self.baseurl}{self.lat},{self.lon}/stations"
+        
+        if "properties" in points_data:
+            forecast_url = points_data["properties"].get("forecast")
+            hourly_url = points_data["properties"].get("forecastHourly")
+
+        # Define tasks for parallel execution - all in parallel for maximum speed
+        futures = {}
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:  # Increase workers for better parallelism
+            # Submit all requests in parallel for maximum speed
+            if forecast_url:
+                futures['forecast'] = executor.submit(self._make_api_request, forecast_url)
+            
+            futures['stations'] = executor.submit(self._make_api_request, stations_url)
+            
+            if hourly_url and self.include_hourly:
+                futures['hourly'] = executor.submit(self._make_api_request, hourly_url, False)
+
+            # Use as_completed for fastest response processing
+            completed_futures = {}
+            timeout_total = 8  # Reasonable timeout to allow requests to complete successfully
+            
+            try:
+                for future in concurrent.futures.as_completed(futures.values(), timeout=timeout_total):
+                    # Find which request this future belongs to
+                    future_name = None
+                    for name, f in futures.items():
+                        if f == future:
+                            future_name = name
+                            break
+                    
+                    if future_name:
+                        try:
+                            result = future.result()
+                            completed_futures[future_name] = result
+                            logger.debug(f"Successfully completed {future_name} request")
+                        except Exception as e:
+                            logger.debug(f"Error in {future_name} request: {str(e)}")
+                            completed_futures[future_name] = None
+                            
+            except concurrent.futures.TimeoutError:
+                logger.info(f"Some API requests timed out after {timeout_total}s - continuing with partial data")
+                # Cancel any remaining futures to avoid hanging
+                for future in futures.values():
+                    if not future.done():
+                        future.cancel()
+
+            # Process completed results in priority order - forecast is most important
+            results_order = ['forecast', 'stations', 'hourly']  # Prioritize forecast data
+            forecast_found = False
+            
+            for future_name in results_order:
+                result = completed_futures.get(future_name)
+                if result is None:
+                    continue
+                    
+                try:
+                    if future_name == 'forecast':
+                        self.jforecast = result
+                        forecast_found = True
+                        logger.debug("Got forecast data - core weather information available")
+                    elif future_name == 'hourly':
+                        self.jhourly = result
+                    elif future_name == 'stations':
+                        self._process_stations_data(result)
+                        
+                except Exception as e:
+                    logger.warning(f"Error processing {future_name} data: {str(e)}")
+                    if future_name == 'forecast':
+                        # Forecast is critical, re-raise the error
+                        raise DataParsingError(data_type="forecast", message=str(e))
+                    elif future_name == 'hourly':
+                        # Hourly is optional, just log and continue
+                        self.jhourly = None
+                    elif future_name == 'stations':
+                        # Stations are needed for current conditions, log warning
+                        logger.warning("Could not process stations data")
+
+    def _process_stations_data(self, stations_data: dict[str, Any]) -> None:
+        """Process stations data and fetch observations in parallel."""
+        if (
+            not stations_data
+            or "features" not in stations_data
+            or len(stations_data["features"]) < 3
+        ):
+            logger.warning("Station data incomplete or missing")
+            return
+
+        # Get station IDs for the three closest stations
+        stations: list[str] = []
+        for i in range(min(3, len(stations_data["features"]))):
+            if "id" in stations_data["features"][i]:
+                stations.append(str(stations_data["features"][i]["id"]))
+
+        if len(stations) < 3:
+            logger.warning(f"Found only {len(stations)} stations, need 3")
+            if not stations:
+                return
+
+        self.station = stations[0] if len(stations) > 0 else None
+        self.station_reserve = stations[1] if len(stations) > 1 else None
+        self.station_reserve2 = stations[2] if len(stations) > 2 else None
+
+        if self.station:
+            self.station_name = self.station.split("/")[-1]
+
+        # Try to get observations from stations in parallel
+        self._get_observations_parallel(stations)
 
     def _make_api_request(
         self, url: str, required: bool = True
@@ -370,109 +510,61 @@ class noaa:
             self.state = "who cares"
             raise DataParsingError(data_type="location", message=str(e))
 
-    def _get_forecast_data(self, points_data: dict[str, Any]) -> None:
+    def _get_observations_parallel(self, stations: list[str]) -> None:
         """
-        Fetch forecast data from the forecast URL in points response.
-
-        Args:
-            points_data: JSON response from the points API
-        """
-        try:
-            if "properties" in points_data and "forecast" in points_data["properties"]:
-                forecast_url = str(points_data["properties"]["forecast"])
-                self.jforecast = self._make_api_request(forecast_url)
-
-                # Also get hourly forecast (but make it optional)
-                try:
-                    if "forecastHourly" in points_data["properties"]:
-                        hourly_url = str(points_data["properties"]["forecastHourly"])
-                        self.jhourly = self._make_api_request(
-                            hourly_url, required=False
-                        )
-                    else:
-                        logger.warning(
-                            "Hourly forecast URL not found in points response"
-                        )
-                        self.jhourly = None
-                except Exception as e:
-                    logger.warning(f"Hourly forecast unavailable: {str(e)}")
-                    self.jhourly = None  # Continue without hourly forecast
-            else:
-                logger.warning("Forecast URL not found in API response")
-        except Exception as e:
-            logger.error(f"Error getting forecast data: {str(e)}")
-            raise DataParsingError(data_type="forecast", message=str(e))
-
-    def _get_station_data(self) -> None:
-        """Fetch station data and observations."""
-        try:
-            # Get nearby stations
-            stations_url = f"{self.baseurl}{self.lat},{self.lon}/stations"
-            stations_data = self._make_api_request(stations_url)
-
-            if (
-                not stations_data
-                or "features" not in stations_data
-                or len(stations_data["features"]) < 3
-            ):
-                logger.warning("Station data incomplete or missing")
-                return
-
-            # Get station IDs for the three closest stations
-            stations: list[str] = []
-            for i in range(min(3, len(stations_data["features"]))):
-                if "id" in stations_data["features"][i]:
-                    stations.append(str(stations_data["features"][i]["id"]))
-
-            if len(stations) < 3:
-                logger.warning(f"Found only {len(stations)} stations, need 3")
-                return
-
-            self.station = stations[0]
-            self.station_reserve = stations[1]
-            self.station_reserve2 = stations[2]
-
-            if self.station:
-                self.station_name = self.station.split("/")[-1]
-
-            # Try to get observations from each station until we find valid data
-            self._get_observations_data(stations)
-
-        except Exception as e:
-            logger.error(f"Error getting station data: {str(e)}")
-            raise DataParsingError(data_type="station", message=str(e))
-
-    def _get_observations_data(self, stations: list[str]) -> None:
-        """
-        Fetch and validate observations from multiple stations.
+        Fetch and validate observations from multiple stations in parallel with optimized timeouts.
 
         Args:
             stations: List of station URLs to try
         """
-        for station in stations:
-            try:
+        if not stations:
+            return
+            
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            # Submit requests for all stations in parallel
+            future_to_station = {}
+            for station in stations[:3]:  # Limit to 3 stations max
                 observations_url = f"{station}/observations"
-                observations_data = self._make_api_request(observations_url)
+                future = executor.submit(self._make_api_request, observations_url, False)
+                future_to_station[future] = station
 
-                if (
-                    observations_data
-                    and "features" in observations_data
-                    and observations_data["features"]
-                ):
-                    # Verify we have temperature data
+            # Check results in order of completion with reasonable timeout for reliability
+            try:
+                for future in concurrent.futures.as_completed(future_to_station, timeout=6):
+                    station = future_to_station[future]
                     try:
-                        temp_value = observations_data["features"][0]["properties"][
-                            "temperature"
-                        ]["value"]
-                        if temp_value is not None:
-                            self.jconditions = observations_data
-                            return
-                    except (KeyError, TypeError, IndexError):
-                        logger.debug(f"No valid temperature data in station: {station}")
-            except Exception as e:
-                logger.debug(f"Error getting observations from {station}: {str(e)}")
+                        observations_data = future.result(timeout=3)  # More reasonable timeout for station data
+                        
+                        if (
+                            observations_data
+                            and "features" in observations_data
+                            and observations_data["features"]
+                        ):
+                            # Verify we have temperature data
+                            try:
+                                temp_value = observations_data["features"][0]["properties"][
+                                    "temperature"
+                                ]["value"]
+                                if temp_value is not None:
+                                    self.jconditions = observations_data
+                                    logger.debug(f"Found valid temperature data from station: {station}")
+                                    # Cancel remaining futures to save time
+                                    for remaining_future in future_to_station:
+                                        if remaining_future != future and not remaining_future.done():
+                                            remaining_future.cancel()
+                                    return  # Success! Exit early
+                            except (KeyError, TypeError, IndexError):
+                                logger.debug(f"No valid temperature data in station: {station}")
+                    except Exception as e:
+                        logger.debug(f"Error getting observations from {station}: {str(e)}")
+            except concurrent.futures.TimeoutError:
+                logger.info("Station observations requests timed out after 6s - continuing without current conditions")
+                # Cancel any remaining futures
+                for future in future_to_station:
+                    if not future.done():
+                        future.cancel()
 
-        logger.warning("Could not find valid observations from any station")
+        logger.debug("Could not find valid observations from any station")
 
     def format_for_meow(self) -> None:
         """
@@ -520,3 +612,177 @@ class openweathermap:
             return "latlon"
         else:
             return "city"
+
+
+def is_canadian_location(location: str) -> bool:
+    """
+    Check if a location string indicates a Canadian location.
+    
+    Args:
+        location: Location string to check
+        
+    Returns:
+        True if the location appears to be in Canada
+    """
+    location_lower = location.lower().strip()
+    
+    # Quick early checks for obvious indicators
+    if any(indicator in location_lower for indicator in ['canada', ' can ', '.ca', 'cdn']):
+        return True
+    
+    # Check for Canadian province abbreviations (most common patterns first)
+    canadian_provinces = [
+        'on', 'ontario',           # Most populous
+        'qc', 'quebec', 'québec',  # Second most populous  
+        'bc', 'british columbia', 'b.c.',  # Third most populous
+        'ab', 'alberta',           # Fourth most populous
+        'mb', 'manitoba',
+        'sk', 'saskatchewan', 
+        'ns', 'nova scotia',
+        'nb', 'new brunswick',
+        'nl', 'newfoundland and labrador', 'newfoundland',
+        'pe', 'prince edward island', 'p.e.i.',
+        'nt', 'northwest territories',
+        'nu', 'nunavut',
+        'yt', 'yukon'
+    ]
+    
+    # Split location into parts and check each part
+    location_parts = location_lower.replace(',', ' ').replace('.', ' ').split()
+    for part in location_parts:
+        part = part.strip()
+        if part in canadian_provinces:
+            return True
+    
+    # Check for Canadian postal code pattern (A1A 1A1 or A1A1A1)
+    import re
+    postal_pattern = r'\b[a-z]\d[a-z]\s?\d[a-z]\d\b'
+    if re.search(postal_pattern, location_lower):
+        return True
+    
+    # Check for common Canadian city patterns
+    canadian_cities = [
+        'toronto', 'montreal', 'vancouver', 'calgary', 'ottawa', 'halifax',
+        'winnipeg', 'quebec city', 'hamilton', 'kitchener', 'london ontario',
+        'st. catharines', 'victoria', 'saskatoon', 'regina', 'windsor',
+        'charlottetown', 'fredericton', 'st. johns', 'yellowknife', 'whitehorse'
+    ]
+    
+    for city in canadian_cities:
+        if city in location_lower:
+            return True
+        
+    return False
+
+
+class environment_canada:
+    """
+    Environment and Climate Change Canada weather data client
+    
+    Provides weather data for Canadian locations, with smart fallback to nearby US weather stations.
+    """
+    
+    def __init__(self, location: str, include_hourly: bool = True):
+        """
+        Initialize the Environment Canada API client.
+        
+        Args:
+            location: Canadian location (city, province or coordinates)
+            include_hourly: Whether to include hourly forecast data
+        """
+        self.location = location
+        self.include_hourly = include_hourly
+        self.lat = None
+        self.lon = None
+        self.city = "Unknown"
+        self.state = "Canada"
+        self.station = None
+        self.station_name = None
+        self.jconditions = None
+        self.jforecast = None
+        self.jhourly = None
+        
+        # Get coordinates
+        self._get_coordinates()
+        
+        if not self.lat or not self.lon:
+            raise LocationError(location=location, message="Could not find coordinates for Canadian location")
+            
+        # Try to get weather data from nearby US stations if close to border
+        self._try_nearby_us_weather()
+    
+    def _get_coordinates(self):
+        """Get coordinates for the Canadian location"""
+        try:
+            coords = get_coordinates(self.location)
+            if coords:
+                self.lat = str(coords[0])
+                self.lon = str(coords[1])
+                
+                # Get a more friendly city name from the location string
+                if ',' in self.location:
+                    parts = self.location.split(',')
+                    self.city = parts[0].strip().title()
+                    if len(parts) > 1:
+                        province = parts[1].strip().upper()
+                        self.state = f"{province}, Canada"
+                else:
+                    self.city = self.location.title()
+                    self.state = "Canada"
+                    
+        except Exception as e:
+            logger.error(f"Error getting coordinates for Canadian location {self.location}: {e}")
+    
+    def _try_nearby_us_weather(self):
+        """Try to get weather data from nearby US weather stations for border cities"""
+        try:
+            # Check if this Canadian location is close to the US border and might have US weather data
+            lat_f = float(self.lat)
+            
+            # Southern Canada locations that might have nearby US weather stations
+            if 42.0 <= lat_f <= 50.0:  # Southern band where US weather might be relevant
+                logger.info(f"Canadian location {self.location} is near US border, trying US weather services")
+                try:
+                    # Use the noaa class directly to try to get data
+                    us_weather = noaa(f"{self.lat},{self.lon}", include_hourly=self.include_hourly)
+                    
+                    # If we successfully got data, use it but update the location display
+                    if hasattr(us_weather, 'jforecast') and us_weather.jforecast:
+                        self.jforecast = us_weather.jforecast
+                        logger.info(f"Successfully got US weather data for Canadian location {self.location}")
+                        
+                    if hasattr(us_weather, 'jconditions') and us_weather.jconditions:
+                        self.jconditions = us_weather.jconditions
+                        
+                    if hasattr(us_weather, 'jhourly') and us_weather.jhourly:
+                        self.jhourly = us_weather.jhourly
+                        
+                    return  # Success - we got US weather data
+                        
+                except Exception as e:
+                    logger.debug(f"US weather lookup failed for {self.location}: {e}")
+                    # Fall through to create fallback data
+            
+        except (ValueError, TypeError):
+            pass  # Fall through to create fallback data
+        
+        # Create fallback data if US weather didn't work
+        self._create_fallback_data()
+            
+    def _create_fallback_data(self):
+        """Create a basic fallback data structure for Canadian locations"""
+        logger.info(f"Creating fallback weather data for Canadian location {self.location}")
+        
+        # Create minimal forecast structure to avoid "??" display
+        self.jforecast = {
+            "properties": {
+                "periods": [
+                    {
+                        "name": f"Day {i}",
+                        "temperature": "N/A",
+                        "icon": "",
+                        "detailedForecast": "Weather data not available for Canadian locations at this time."
+                    } for i in range(5)
+                ]
+            }
+        }

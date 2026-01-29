@@ -1,150 +1,54 @@
 <!doctype html>
-<html lang="en" data-theme="{{ theme|default('light') }}">
-<head>
-<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Real-time weather information and forecasts with temperature charts">
 <title>{{ title.lower() }} | ^.^____/</title>
-<link href={{ url_for('static', filename='styles.css') }} rel='stylesheet'>
-<script src={{ url_for('static', filename='js/autocomplete.js') }}></script>
-<script src={{ url_for('static', filename='js/theme-switcher.js') }}></script>
+<link href={{ url_for('static', filename='styles_simple.css') }} rel='stylesheet'>
 <script src={{ url_for('static', filename='js/charts/temperature-chart.js') }}></script>
-<style>
-    .recent-locations {
-        margin-top: 30px;
-        margin-bottom: 40px;
-        background-color: var(--card-bg-color);
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: var(--card-shadow);
-        max-width: 90%;
-        margin-left: auto;
-        margin-right: auto;
-    }
-    .locations-title {
-        font-size: 1.2em;
-        color: var(--text-color);
-        margin-bottom: 15px;
-        border-bottom: 2px solid var(--border-color);
-        padding-bottom: 8px;
-        font-weight: normal;
-    }
-    .location-buttons {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 12px;
-        margin-top: 15px;
-    }
-    .location-button {
-        display: inline-flex;
-        align-items: center;
-        background-color: var(--button-bg-color);
-        border: 1px solid var(--border-color);
-        border-radius: 25px;
-        padding: 10px 18px;
-        margin: 5px;
-        transition: all 0.3s ease;
-        text-decoration: none;
-        color: var(--text-color);
-        box-shadow: var(--card-shadow);
-    }
-    .location-button:hover {
-        background-color: var(--button-hover-bg);
-        transform: translateY(-3px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        border-color: var(--border-color);
-    }
-    .location-emoji {
-        font-size: 1.4em;
-        margin-right: 10px;
-    }
-    .location-name {
-        font-size: 1em;
-        font-weight: 500;
-    }
-</style>
-</head>
-<body data-location="{{ location|default('') }}">
-<a href="#main-content" class="skip-link">Skip to main content</a>
-<div class="theme-toggle-container">
-    <label class="theme-toggle" for="theme-toggle">
-        <input type="checkbox" id="theme-toggle" aria-label="Toggle dark mode theme">
-        <span class="slider">
-            <span class="toggle-icons">
-                <span id="theme-icon-sun" aria-hidden="true">☀️</span>
-                <span id="theme-icon-moon" aria-hidden="true">🌙</span>
-            </span>
-        </span>
-        <span class="sr-only">Toggle between light and dark themes</span>
-    </label>
-</div>
 <div class="total"  align="center">
-<header role="banner">
-<h1><a href={{ url_for('views.index') }} aria-label="wxmeow weather home">^.^___/</a></h1>
-</header>
+<h2><a href={{ url_for('views.index') }}>^.^___/</a></h2>
 
-<main id="main-content" role="main">
 {% if wxmeow %}
-    <section aria-label="Current weather conditions">
-        {{ wxmeow.wxmeow | safe }}
-    </section>
-
-    {% if pic %}
-    <section aria-label="Weather illustration">
-        <img style="width:575px; max-width: 100%;" src="{{ pic }}" alt="Weather illustration showing current conditions" loading="lazy"/>
-    </section>
-    {% endif %}
-
-    <section aria-label="Weather forecast and temperature charts">
-        {{ wxmeow.futuremeow | safe }}
-    </section>
+    {{ wxmeow.wxmeow | safe }}
+    {{ wxmeow.futuremeow | safe }}
 {% endif %}
 
 {% block content %}
 
 {% if form %}
 
-    <section aria-label="Weather location search">
+    <section>
         <h2 style="padding-top: 40px; padding-bottom: 40px;">the weather, right meow</h2>
-            <form action="" method="post" role="search">
-                <div>
+            <form action="" method="post">
+                <p>
                     {{ form.csrf_token }}
-                    <label for="location" class="sr-only">Enter location for weather forecast</label>
-                    {{ form.location(placeholder='Enter city, zip, or lat/lon coordinates', size=32, id='location') }}
-                    <div id="location-help" class="sr-only">Enter a city name, ZIP code, or latitude and longitude coordinates</div>
-                </div>
-                <div>{{ form.submit(class_='but') }}</div>
+                    {{ form.location(placeholder='enter location', size=32) }}
+                </p>
+                <p>{{ form.submit(class="but") }}</p>
             </form>
     </section>
+    <div style="padding-top: 50px"></div>
 
+    {% if location_history %}
+        <section style="margin-top: 20px;">
+            <h3>recent locations</h3>
+            <div class="location-history">
+                {% for entry in location_history %}
+                    <a href="{{ url_for('views.weather', location=entry.location) }}" class="location-button">{{ entry.display_name }}</a>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
 
 {% endif %}
 
-{% if location_history and form %}
-    <section class="recent-locations" aria-label="Recently viewed locations">
-        <h3 class="locations-title">\___^.^</h3>
-        <nav aria-label="Recent weather locations">
-            <div class="location-buttons">
-                {% for entry in location_history %}
-                    <a href="{{ url_for('views.weather', location=entry.location) }}" class="location-button" aria-label="View weather for {{ entry.display_name }}">
-                        <span class="location-emoji" aria-hidden="true">{{ entry.emoji }}</span>
-                        <span class="location-name">{{ entry.display_name }}</span>
-                    </a>
-                {% endfor %}
-            </div>
-        </nav>
-    </section>
+{% if pic %}
+
+<br><br>
+<img style="width=:575px; max-width: 100%;" src="{{ url_for('static', filename='catpics/{}'.format(pic)) }}"/>
+
 {% endif %}
 
 {% endblock %}
-</main>
 
-<footer role="contentinfo" style="margin-top: 40px; padding: 20px 0;">
-    <nav aria-label="Footer navigation">
-        <a href={{ url_for('views.index') }} aria-label="Return to wxmeow weather home">\___^.^</a>
-    </nav>
-</footer>
+<br><br>
+<h2><a href={{ url_for('views.index') }}>\___^.^</a></h2>
 </div>
-</body>
-</html>

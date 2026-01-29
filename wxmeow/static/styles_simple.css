@@ -1,3 +1,10 @@
+/*@media (prefers-color-scheme: dark) {
+    body {
+    background-color: black;
+    color: white;
+    }
+    }*/
+
 h1, h2, h3, body {
     font-family: sans-serif;
 }
@@ -116,4 +123,30 @@ table {
     max-width: 800px !important;
     margin: 20px auto !important;
     display: none;
+}
+
+/* Location history styles */
+.location-history {
+    margin: 10px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.location-button {
+    display: inline-block;
+    padding: 6px 12px;
+    background-color: transparent;
+    border: 1px solid lightgray;
+    border-radius: 4px;
+    text-decoration: none !important;
+    color: inherit;
+    font-size: 0.9em;
+    transition: border-color 0.2s;
+}
+
+.location-button:hover, .location-button:focus {
+    border: 1px solid black;
+    text-decoration: none !important;
 }

@@ -1,20 +1,19 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Temperature Chart Test | ^.^____/</title>
-<link href={{ url_for('static', filename='styles.css') }} rel='stylesheet'>
+<link href={{ url_for('static', filename='styles_simple.css') }} rel='stylesheet'>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src={{ url_for('static', filename='js/theme-switcher.js') }}></script>
 <script src={{ url_for('static', filename='js/charts/temperature-chart.js') }}></script>
 <style></style>
     .test-controls {
         margin: 20px auto;
         padding: 20px;
-        background-color: var(--card-bg-color);
+        background-color: white;
         border-radius: 8px;
-        box-shadow: var(--card-shadow);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         max-width: 600px;
     }
     .test-buttons {
@@ -25,27 +24,16 @@
     }
     .day-button {
         padding: 10px 20px;
-        background-color: var(--button-bg-color);
-        border: 1px solid var(--border-color);
-        color: var(--text-color);
+        background-color: white;
+        border: 1px solid lightgray;
+        color: black;
         cursor: pointer;
         border-radius: 4px;
     }
     .day-button:hover {
-        background-color: var(--button-hover-bg);
+        background-color: #f0f0f0;
     }
 </style>
-<div class="theme-toggle-container">
-    <label class="theme-toggle">
-        <input type="checkbox" id="theme-toggle">
-        <span class="slider">
-            <span class="toggle-icons">
-                <span id="theme-icon-sun">☀️</span>
-                <span id="theme-icon-moon">🌙</span>
-            </span>
-        </span>
-    </label>
-</div>
 </head>
 <body data-location="{{ location|default('') }}">
 <div class="total" align="center">

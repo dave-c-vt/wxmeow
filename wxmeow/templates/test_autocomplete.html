@@ -1,12 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="{{ theme|default('light') }}">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Location Autocomplete Test | wxmeow</title>
-    <link href={{ url_for('static', filename='styles.css') }} rel='stylesheet'>
+    <link href={{ url_for('static', filename='styles_simple.css') }} rel='stylesheet'>
     <script src={{ url_for('static', filename='js/autocomplete.js') }}></script>
-    <script src={{ url_for('static', filename='js/theme-switcher.js') }}></script>
     <style>
         body {
             font-family: sans-serif;
@@ -14,20 +13,18 @@
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-            background-color: var(--background-color);
-            color: var(--text-color);
         }
         h1 {
             text-align: center;
             margin-bottom: 30px;
         }
         .test-section {
-            background-color: var(--card-bg-color);
-            border: 1px solid var(--border-color);
+            background-color: white;
+            border: 1px solid lightgray;
             border-radius: 4px;
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: var(--card-shadow);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .instructions {
             margin-bottom: 20px;
@@ -39,10 +36,10 @@
         .results {
             margin-top: 30px;
             padding: 15px;
-            border: 1px solid var(--border-color);
+            border: 1px solid lightgray;
             border-radius: 4px;
             min-height: 100px;
-            background-color: var(--button-bg-color);
+            background-color: #f5f5f5;
         }
         .hidden {
             display: none;
@@ -52,17 +49,6 @@
             text-align: center;
         }
     </style>
-    <div class="theme-toggle-container">
-        <label class="theme-toggle">
-            <input type="checkbox" id="theme-toggle">
-            <span class="slider">
-                <span class="toggle-icons">
-                    <span id="theme-icon-sun">☀️</span>
-                    <span id="theme-icon-moon">🌙</span>
-                </span>
-            </span>
-        </label>
-    </div>
 </head>
 <body>
     <h1>Location Autocomplete Test</h1>
@@ -75,7 +61,7 @@
 
         <div class="search-box">
             <form id="test-form">
-                <input type="text" id="location" placeholder="Enter city, zip, or lat/lon" size="40">
+                <input type="text" id="location" placeholder="Enter location" size="40">
                 <button type="submit">Search</button>
             </form>
         </div>

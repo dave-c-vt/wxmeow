@@ -13,9 +13,12 @@ import logging
 import traceback
 import json
 from typing import Dict, List, Any, Optional
+# Removed custom weather icons - using NOAA icons directly
 
 from wxmeow.weather_query import (
     noaa,
+    environment_canada,
+    is_canadian_location,
     LocationError,
     ApiError,
     DataParsingError,
@@ -34,14 +37,16 @@ class wxmeow:
     Formats weather data from NOAA API into HTML.
     """
 
-    def __init__(self, location: str):
+    def __init__(self, location: str, include_hourly: bool = True):
         """
         Initialize a weather information object for the given location.
 
         Args:
             location: Zipcode or lat,lon coordinates
+            include_hourly: Whether to fetch hourly forecast data for charts
         """
         self.location = location
+        self.include_hourly = include_hourly
         self.meow = None
         self.age = None
         self.wxmeow = ""
@@ -63,12 +68,15 @@ class wxmeow:
         self.detail = []
 
         try:
-            # Try to load from cache first
+            # Try to load from cache first with more aggressive caching for Canadian locations
             try:
                 self.meow, self.age = load_meow(self.location)
-                if self.age is None or self.meow is None or self.age > 10:
+                # For Canadian locations, use cache longer since we have limited data anyway
+                cache_timeout = 45 if is_canadian_location(self.location) else 15  # Reduced cache timeout for faster updates
+                
+                if self.age is None or self.meow is None or self.age > cache_timeout:
                     logger.info(
-                        f"Cache miss or expired for {location}, fetching new data"
+                        f"Cache miss or expired for {location} (age: {self.age}, timeout: {cache_timeout}), fetching new data"
                     )
                     self.reload()
                 else:
@@ -153,8 +161,8 @@ class wxmeow:
                         period = periods[i]
                         self.dayname.append(period.get("name", f"Day {i}").lower())
                         self.meowfc.append(period.get("icon", ""))
-                        self.meowtp.append(str(period.get("temperature", "??")))
-                        self.meowlt.append(str(period.get("temperature", "??")))
+                        self.meowtp.append(str(period.get("temperature", "N/A")))
+                        self.meowlt.append(str(period.get("temperature", "N/A")))
                         self.detail.append(
                             "<h3>{0}</h3>{1}".format(
                                 period.get("name", f"Day {i}").lower(),
@@ -168,8 +176,8 @@ class wxmeow:
                         # Add placeholder data for this period
                         self.dayname.append(f"day {i}")
                         self.meowfc.append("")
-                        self.meowtp.append("??")
-                        self.meowlt.append("??")
+                        self.meowtp.append("N/A")
+                        self.meowlt.append("N/A")
                         self.detail.append(f"<h3>day {i}</h3>No forecast available")
 
                 # Fill with placeholders if we don't have 5 periods
@@ -177,18 +185,30 @@ class wxmeow:
                     i = len(self.dayname)
                     self.dayname.append(f"day {i}")
                     self.meowfc.append("")  # Empty string for no icon
-                    self.meowtp.append("??")
-                    self.meowlt.append("??")
+                    self.meowtp.append("N/A")
+                    self.meowlt.append("N/A")
                     self.detail.append(f"<h3>day {i}</h3>No forecast available")
             else:
                 logger.warning("No forecast data available")
-                # Add placeholder data
-                for i in range(5):
-                    self.dayname.append(f"day {i}")
-                    self.meowfc.append("")
-                    self.meowtp.append("??")
-                    self.meowlt.append("??")
-                    self.detail.append(f"<h3>day {i}</h3>No forecast available")
+                # Check if location failed completely vs partial data
+                has_any_data = (self.meowtemp != "??" or self.meowobs != "unknown")
+                
+                if not has_any_data:
+                    # Complete failure - show a nice message instead of placeholders
+                    for i in range(5):
+                        self.dayname.append(f"day {i}")
+                        self.meowfc.append("")
+                        self.meowtp.append("")  # Empty instead of ??
+                        self.meowlt.append("")   # Empty instead of ??
+                        self.detail.append(f"<h3>day {i}</h3>Forecast data unavailable")
+                else:
+                    # Partial data - we have current conditions but no forecast
+                    for i in range(5):
+                        self.dayname.append(f"day {i}")
+                        self.meowfc.append("")
+                        self.meowtp.append("N/A")
+                        self.meowlt.append("N/A")
+                        self.detail.append(f"<h3>day {i}</h3>Forecast not available")
         except Exception as e:
             logger.error(f"Error processing forecast: {str(e)}")
             logger.debug(traceback.format_exc())
@@ -199,26 +219,41 @@ class wxmeow:
         tdc = "<td class='one'>"
 
         try:
-            wxmeow = (
-                "<h1>"
-                + self.meowplace
-                + "<br> <small>is</small> "
-                + self.meowobs
-                + " <small>and</small> "
-                + self.meowtemp
-                + " F </br></br>Dew point <small>is</small> "
-                + str(self.meowdp)
-                + " F </br>Pressure <small>is</small> "
-                + self.meowbptrend
-                + " <small>at</small> "
-                + self.meowbp
-                + " inches</h1>"
-            )
-            self.wxmeow = wxmeow.lower()
+            # Check if we have adequate weather data
+            has_temp = self.meowtemp != "??"
+            has_conditions = self.meowobs != "unknown"
+            has_pressure = self.meowbp != "??"
+            has_dewpoint = self.meowdp != "??"
+            
+            # If this looks like a failed lookup, provide a better message
+            if not has_temp and not has_conditions:
+                if is_canadian_location(self.location):
+                    self.wxmeow = f"<h1>{self.meowplace}</h1><h2>Canadian Location Notice</h2><p>Weather data for Canadian locations is currently limited. We're working to add Environment and Climate Change Canada as a data source.</p><p>For now, please try using specific coordinates or a nearby US location for more detailed weather information.</p>"
+                else:
+                    self.wxmeow = f"<h1>{self.meowplace}</h1><h2>Weather Data Unavailable</h2><p>We couldn't retrieve current weather data for this location.</p><p>Try being more specific (e.g., 'Chicago, IL' instead of 'Chicago') or use a zip code.</p>"
+            elif not has_temp:
+                # We have conditions but no temperature
+                self.wxmeow = f"<h1>{self.meowplace}<br> <small>is</small> {self.meowobs} <small>but temperature data unavailable</small></h1>"
+            else:
+                # We have some data, build the normal display
+                temp_text = f"{self.meowtemp} F" if has_temp else "temperature unavailable"
+                condition_text = self.meowobs if has_conditions else "conditions unknown"
+                
+                wxmeow = f"<h1>{self.meowplace}<br> <small>is</small> {condition_text} <small>and</small> {temp_text}"
+                
+                if has_dewpoint:
+                    wxmeow += f"</br></br>dew point <small>is</small> {self.meowdp} F"
+                
+                if has_pressure:
+                    wxmeow += f"</br>pressure <small>is</small> {self.meowbptrend} <small>at</small> {self.meowbp} inches"
+                
+                wxmeow += "</h1>"
+                self.wxmeow = wxmeow.lower()
+                
         except Exception as e:
             logger.error(f"Error creating weather HTML: {str(e)}")
             # Create a simpler version with whatever data we have
-            self.wxmeow = f"<h1>{self.meowplace}<br> <small>Weather data partially available</small></h1>"
+            self.wxmeow = f"<h1>{self.meowplace}<br> <small>weather data partially available</small></h1>"
 
         # Process hourly data for charts
         try:
@@ -229,89 +264,75 @@ class wxmeow:
             logger.debug(traceback.format_exc())
             self.meowhourly = []
 
-        # If we don't have hourly data, create placeholder data
+        # If we don't have hourly data, log and continue without dummy data  
         if not self.meowhourly or len(self.meowhourly) == 0:
-            self._make_hourly_data()
+            logger.info("No hourly data available - will not generate dummy data")
+            self.meowhourly = []
 
-        futureth = (
-            tr[0]
-            + td[0]
-            + f'<span id="date-0" class="date-header">{self.dayname[0]}</span>'
-            + td[1]
-            + td[0]
-            + f'<span id="date-1" class="date-header">{self.dayname[1]}</span>'
-            + td[1]
-            + td[0]
-            + f'<span id="date-2" class="date-header">{self.dayname[2]}</span>'
-            + td[1]
-            + td[0]
-            + f'<span id="date-3" class="date-header">{self.dayname[3]}</span>'
-            + td[1]
-            + td[0]
-            + f'<span id="date-4" class="date-header">{self.dayname[4]}</span>'
-            + td[1]
-            + tr[1]
-        )
-        futurepics = '<table class="weather-forecast-table">' + tr[0]
-        # Safely process each forecast icon, handling empty strings
+        # Build single combined forecast table with weather icons and temperatures
+        forecast_table = '<div class="forecast-container" style="width: 100%; overflow-x: auto; margin: 10px 0;">\n'
+        forecast_table += '<table class="weather-forecast-table" style="min-width: 400px; width: max-content; border-collapse: separate; border-spacing: 4px;">\n'
+        forecast_table += '<tr class="day-headers">\n'
+
+        # Add 12-hour period headers
+        for i in range(5):
+            period_label = (
+                f"{self.dayname[i]}<br><small></small>"
+                if i < len(self.dayname)
+                else f"Period {i + 1}<br><small></small>"
+            )
+            forecast_table += f'<td style="text-align: center; padding: 4px; white-space: nowrap; font-weight: bold; font-size: 0.9em;"><span id="date-{i}" class="date-header">{period_label}</span></td>\n'
+
+        forecast_table += '</tr>\n<tr class="weather-icons">\n'
+
+        # Add weather icons using NOAA API icons directly
         for i in range(5):
             try:
-                td_style = tdc if i >= 3 else td[0]
-                img_src = ""
-                if i < len(self.meowfc):
-                    if self.meowfc[i] and " " in self.meowfc[i]:
-                        img_src = self.meowfc[i].split(" ")[0]
-                    elif self.meowfc[i]:
-                        img_src = self.meowfc[i]
+                # Use NOAA icon URL directly
+                icon_url = ""
+                if i < len(self.meowfc) and self.meowfc[i]:
+                    icon_url = self.meowfc[i]
+                    logger.debug(f"Day {i} NOAA icon URL: '{icon_url}'")
 
-                # Create weather icon for each day
-                if img_src:
-                    weather_emoji = self._get_weather_emoji(img_src)
+                onclick_handler = f"selectDay({i}, event); return false;"
+
+                forecast_table += f'<td style="text-align: center; padding: 2px; cursor: pointer; min-width: 80px;" id="{i}" class="day-selector weather-icon-cell" onclick="{onclick_handler}" role="button" aria-label="Select period {i + 1} forecast" tabindex="0">\n'
+
+                if icon_url:
+                    # Use NOAA icon directly
+                    forecast_table += f'<img src="{icon_url}" alt="Weather forecast" width="64" height="64" style="display: block; margin: 0 auto;" />\n'
                 else:
-                    # Use placeholder for empty images
-                    weather_emoji = "⚡"
+                    # Show a placeholder for missing forecast data
+                    forecast_table += f'<div style="width: 64px; height: 64px; background: #f0f0f0; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 12px;">N/A</div>\n'
 
-                # Prevent default action explicitly to avoid page jumping
-                onclick_handler = f"selectDay({i}, event); return false;"
-
-                futurepics += (
-                    td_style
-                    + f"<span id='{i}' class='day-selector weather-icon' "
-                    + "style='cursor:pointer; display:block; padding: 15px; text-align:center; font-size:48px; border-radius:4px;' "
-                    + f'onclick="{onclick_handler}" '
-                    + f'role="button" '
-                    + f'aria-label="Select day {i + 1} forecast" '
-                    + 'tabindex="0">'
-                    + weather_emoji
-                    + "</span>"
-                    + td[1]
-                )
+                forecast_table += "</td>\n"
             except Exception as e:
-                logger.warning(
-                    f"Error generating forecast icon HTML for day {i}: {str(e)}"
+                logger.warning(f"Error generating weather icon for day {i}: {str(e)}")
+                logger.debug(
+                    f"Weather condition was: '{weather_condition if 'weather_condition' in locals() else 'unknown'}'"
                 )
                 onclick_handler = f"selectDay({i}, event); return false;"
-                td_style = tdc if i >= 3 else td[0]
-                futurepics += (
-                    td_style
-                    + "<span id='"
-                    + str(i)
-                    + "' class='day-selector weather-icon' "
-                    + "style='cursor:pointer; display:block; padding: 15px; text-align:center; font-size:48px; border-radius:4px;' "
-                    + 'onclick="'
-                    + onclick_handler
-                    + '">⚡</span>'
-                    + td[1]
-                )
-        futurepics += tr[1] + "</table>"
+                forecast_table += f'<td style="text-align: center; padding: 2px; cursor: pointer; min-width: 80px;" id="{i}" class="day-selector weather-icon-cell" onclick="{onclick_handler}">\n'
+                forecast_table += '<img src="/static/weather-icons/unknown.svg" alt="Unknown weather" width="48" height="48" style="display: block; margin: 0 auto;" />'
+                forecast_table += "</td>\n"
 
-        # Build temperature row with proper alignment to weather icons
-        futuretemp = tr[0]
+        forecast_table += '</tr>\n<tr class="temperatures">\n'
+
+        # Add temperatures
         for i in range(5):
-            td_style = tdc if i >= 3 else td[0]
-            temp_value = self.meowtp[i] if i < len(self.meowtp) else "??"
-            futuretemp += td_style + str(temp_value) + " F" + td[1]
-        futuretemp += tr[1]
+            temp_value = self.meowtp[i] if i < len(self.meowtp) else ""
+            # Handle None values and other invalid temperatures
+            if temp_value is None or temp_value == "??" or temp_value == "":
+                temp_display = "—"  # em dash for unavailable
+            elif temp_value == "N/A":
+                temp_display = "N/A"
+            elif str(temp_value) == "None":  # Handle string "None" values
+                temp_display = "—"
+            else:
+                temp_display = f"{temp_value}°F"
+            forecast_table += f'<td style="text-align: center; padding: 2px; font-weight: bold; font-size: 1.1em;">{temp_display}</td>\n'
+
+        forecast_table += "</tr>\n</table>\n</div>\n"
         # Add day descriptions immediately after the weather table
         day_descriptions = (
             '<div style="margin: 20px auto; max-width: 800px; text-align: center;">'
@@ -331,16 +352,7 @@ class wxmeow:
 
         self.javascript()
 
-        futuremeow = (
-            self.js
-            + table[0]
-            + futureth
-            + futurepics
-            + futuretemp
-            + table[1]
-            + day_descriptions
-            + futuretext
-        )
+        futuremeow = self.js + forecast_table + day_descriptions + futuretext
         self.futuremeow = futuremeow
 
         # logger.debug(wxmeow)
@@ -358,14 +370,36 @@ class wxmeow:
 
     def reload(self) -> None:
         """
-        Get a fresh read from NOAA API.
+        Get a fresh read from NOAA API, with optimized fallback to Environment Canada for Canadian locations.
         """
         max_retries = 2  # Try up to 2 times (initial + 1 retry)
         retry_count = 0
-
+        
+        # Check if this is a Canadian location
+        is_canadian = is_canadian_location(self.location)
+        
         while retry_count <= max_retries:
             try:
-                self.meow = noaa(self.location)
+                if is_canadian:
+                    # For clearly Canadian locations, try Environment Canada first to save time
+                    try:
+                        logger.info(f"Trying Canadian weather service for '{self.location}'")
+                        self.meow = environment_canada(self.location, include_hourly=self.include_hourly)
+                        logger.info(f"Successfully used Canadian weather service for '{self.location}'")
+                    except (LocationError, ApiError) as canada_error:
+                        logger.info(f"Canadian weather service failed for '{self.location}': {canada_error}")
+                        # Only try NOAA as fallback for border cities
+                        coords = get_coordinates(self.location) 
+                        if coords and 42.0 <= coords[0] <= 50.0:  # Near US border
+                            logger.info(f"Trying NOAA as fallback for Canadian border location '{self.location}'")
+                            self.meow = noaa(self.location, include_hourly=self.include_hourly)
+                            logger.info(f"Successfully fetched Canadian location '{self.location}' from NOAA")
+                        else:
+                            # Re-raise for non-border cities
+                            raise canada_error
+                else:
+                    self.meow = noaa(self.location, include_hourly=self.include_hourly)
+                
                 # If we get here, we succeeded - process the data
                 self._process_hourly_data()
                 # Save the fresh data to cache
@@ -514,90 +548,7 @@ class wxmeow:
             logger.debug(traceback.format_exc())
             self.meowhourly = []
 
-    def _get_weather_emoji(self, icon_url: str) -> str:
-        """
-        Convert a weather icon URL to an appropriate emoji.
 
-        Args:
-            icon_url: The URL of the weather icon
-
-        Returns:
-            A weather emoji representing the condition
-        """
-        # Extract condition from icon URL
-        condition = "unknown"
-        try:
-            if not icon_url:
-                return "🌈"
-
-            url_lower = str(icon_url).lower()
-
-            # Debug output
-            logger.debug(f"Processing weather icon URL: {url_lower}")
-
-            # Night vs Day detection
-            is_night = "night" in url_lower or "n/" in url_lower
-
-            # Create sets for faster matching
-            clear_set = {"skc", "few", "clear"}
-            cloud_set = {"bkn", "ovc", "cloud", "cloudy"}
-            rain_set = {"rain", "shra"}
-            snow_set = {"snow", "blizzard"}
-            sleet_set = {"sleet", "fzra"}
-            storm_set = {"thunder", "tsra"}
-            fog_set = {"fog", "mist"}
-
-            # Check for specific condition patterns in the URL
-            if any(code in url_lower for code in clear_set):
-                condition = "clear_night" if is_night else "clear"
-            elif "sct" in url_lower:
-                condition = "partly_cloudy_night" if is_night else "partly_cloudy"
-            elif any(code in url_lower for code in cloud_set):
-                condition = "cloudy"
-                logger.debug(f"matched {cloud_set}")
-            elif any(code in url_lower for code in rain_set):
-                condition = "rain"
-            elif any(code in url_lower for code in snow_set):
-                condition = "snow"
-            elif any(code in url_lower for code in sleet_set):
-                condition = "sleet"
-            elif any(code in url_lower for code in storm_set):
-                condition = "storm"
-            elif any(code in url_lower for code in fog_set):
-                condition = "fog"
-            elif "wind" in url_lower:
-                condition = "windy"
-            elif "hot" in url_lower:
-                condition = "hot"
-            else:
-                logger.debug("could not match")
-
-        except Exception as e:
-            logger.warning(f"Error processing weather icon: {str(e)}")
-            return "🌈"
-
-        # Map conditions to emojis - more diverse set of weather emojis
-        emoji_map = {
-            "clear": "☀️",
-            "clear_night": "🌙",
-            "partly_cloudy": "⛅",
-            "partly_cloudy_night": "🌤️",
-            "cloudy": "☁️",
-            "rain": "🌧️",
-            "shower": "🌦️",
-            "snow": "❄️",
-            "sleet": "🌨️",
-            "storm": "⛈️",
-            "lightning": "⚡",
-            "fog": "🌫️",
-            "windy": "💨",
-            "tornado": "🌪️",
-            "hot": "🔥",
-            "hurricane": "🌀",
-            "unknown": "🌈",
-        }
-
-        return emoji_map.get(condition, "🌈")
 
     def _get_weather_condition_text(self, icon_url: str) -> str:
         """
@@ -756,26 +707,37 @@ class wxmeow:
         javascript = (
             """
 <style>
-.day-selector {
+/* Day selector cells in forecast table */
+.weather-icon-cell {
     cursor: pointer;
-    transition: all 0.2s ease;
-    padding: 8px;
-    border-radius: 8px;
-    display: block;
-    margin: auto;
-    width: 90px;
-    height: 90px;
+    transition: background-color 0.2s ease;
+    background: transparent;
+    text-decoration: none !important;
+    position: relative;
+}
+
+.weather-icon-cell:hover {
+    background-color: var(--background-color, #fff);
+    filter: invert(10%);
     text-decoration: none !important;
 }
-.day-selector:hover {
-    text-decoration: none !important;
+
+.weather-icon-cell.selected {
+    background-color: var(--text-color, #333) !important;
+    color: var(--background-color, #fff) !important;
 }
+
+.weather-icon-cell.selected pre {
+    color: var(--background-color, #fff) !important;
+}
+
 a {
     text-decoration: none !important;
 }
 a:hover {
     text-decoration: none !important;
 }
+
 .day-description {
     margin-top: 5px;
     margin-bottom: 10px;
@@ -787,19 +749,17 @@ a:hover {
     object-fit: contain;
     text-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
-.weather-icon {
-    font-size: 48px !important;
-    line-height: 1.2;
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.day-selector:hover, .day-selector.selected-day {
-    background-color: var(--button-hover-bg, rgba(100, 100, 100, 0.2));
-    transform: scale(1.08);
-    box-shadow: 0 3px 10px var(--border-color, rgba(0, 0, 0, 0.2));
-    border: 2px solid var(--border-color, #ccc);
+
+/* Weather icon images styling in table */
+.weather-icon-cell img {
+    margin: 0 auto;
+    padding: 2px;
+    display: block;
+    max-width: 48px;
+    max-height: 48px;
+    width: auto;
+    height: auto;
+    transition: opacity 0.2s ease;
 }
 .hourly-chart {
     margin: 15px auto;
@@ -920,13 +880,8 @@ table {
 
               // Create gradient
               const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-              if (isDarkMode()) {
-                  gradient.addColorStop(0, "rgba(255, 159, 64, 0.7)");
-                  gradient.addColorStop(1, "rgba(255, 159, 64, 0.05)");
-              } else {
-                  gradient.addColorStop(0, "rgba(66, 133, 244, 0.7)");
-                  gradient.addColorStop(1, "rgba(66, 133, 244, 0.05)");
-              }
+              gradient.addColorStop(0, "rgba(204, 85, 0, 0.7)");
+              gradient.addColorStop(1, "rgba(204, 85, 0, 0.05)");
 
               // Create chart
               charts[dayIndex] = new Chart(ctx, {
@@ -937,7 +892,7 @@ table {
                           label: 'Temperature (°F)',
                           data: temperatures,
                           backgroundColor: gradient,
-                          borderColor: isDarkMode() ? "rgba(255, 159, 64, 1)" : "rgba(66, 133, 244, 1)",
+                          borderColor: "rgba(204, 85, 0, 1)", // Warm orange for temperature
                           borderWidth: 2,
                           pointRadius: 3,
                           fill: true,
@@ -946,8 +901,8 @@ table {
                       }, {
                           label: 'Precipitation %',
                           data: precipProbs,
-                          borderColor: isDarkMode() ? "rgba(100, 200, 255, 1)" : "rgba(50, 150, 200, 1)",
-                          backgroundColor: "rgba(50, 150, 200, 0.2)",
+                          borderColor: "rgba(0, 120, 140, 1)", // Cool teal for precipitation - contrasts with orange
+                          backgroundColor: "rgba(0, 120, 140, 0.2)",
                           borderWidth: 2,
                           pointRadius: 3,
                           fill: false,
@@ -1032,11 +987,11 @@ table {
 
               // Hide all day descriptions
               $(".day-description").hide();
-              $(".day-selector").removeClass("selected-day");
+              $(".weather-icon-cell").removeClass("selected");
 
               // Show selected day's content
               $("#day-description-" + dayIndex).show();
-              $("#" + dayIndex).addClass("selected-day");
+              $("#" + dayIndex).addClass("selected");
 
               // Show ONLY the selected chart
               $("#hourly-temperature-chart-" + dayIndex).show();

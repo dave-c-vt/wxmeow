@@ -10,7 +10,7 @@ from wxmeow.forms import wxlookup
 from wxmeow.wx2json_noaa import wxmeow
 from wxmeow.pics import pick_pic
 from flask import jsonify
-from wxmeow.weather_query import ApiError, LocationError, DataParsingError
+from wxmeow.weather_query import ApiError, LocationError, DataParsingError, is_canadian_location
 from wxmeow.location_service import get_coordinates, GeocodeError
 from flask import current_app
 
@@ -18,38 +18,18 @@ from flask import current_app
 logger = logging.getLogger("wxmeow")
 
 
-# List of weather-related emojis to use for recent locations
-WEATHER_EMOJIS = [
-    "☀️",
-    "🌤️",
-    "⛅",
-    "🌥️",
-    "☁️",
-    "🌦️",
-    "🌧️",
-    "⛈️",
-    "🌩️",
-    "🌨️",
-    "❄️",
-    "🌬️",
-    "💨",
-    "🌪️",
-    "🌫️",
-    "🌈",
-    "☂️",
-    "☔",
-    "⚡",
-    "❄️",
-    "☃️",
-    "⛄",
-    "🔥",
-    "💧",
-    "🌊",
-    "🏖️",
-    "🌅",
-    "🌇",
-    "🌆",
-    "🌃",
+# Remove all emoji - use simple text descriptions instead
+WEATHER_DESCRIPTIONS = [
+    "clear",
+    "partly-cloudy",
+    "cloudy",
+    "overcast", 
+    "light-rain",
+    "rain",
+    "heavy-rain",
+    "thunderstorm",
+    "snow",
+    "windy",
 ]
 
 
@@ -58,24 +38,14 @@ def get_location_history():
     return session.get("location_history", [])
 
 
-def get_theme_preference():
-    """Get the user's theme preference from cookies."""
-    theme = request.cookies.get("theme")
-    if not theme:
-        # Default to light mode if no preference is set
-        theme = "light"
-    return theme
-
-
 def add_to_location_history(location, display_name=None):
     """Add a location to the history, maintaining only the 5 most recent unique locations."""
     history = get_location_history()
 
-    # Create a new entry with emoji
+    # Create a new entry without emoji
     new_entry = {
         "location": location,
         "display_name": display_name or location,
-        "emoji": random.choice(WEATHER_EMOJIS),
     }
 
     # Remove this location if it's already in history
@@ -100,18 +70,14 @@ def index():
         logger.debug("form redirected!")
         return redirect(url_for("views.weather", location=form.location.data))
 
-    # Get location history
-    location_history = get_location_history()
-
-    # Get theme preference
-    theme = get_theme_preference()
-
+    # Get location history for display
+    history = get_location_history()
+    
     return render_template(
         "base.html",
         title="MEOWCAST!!",
         form=form,
-        location_history=location_history,
-        theme=theme,
+        location_history=history,
     )
 
 
@@ -122,21 +88,43 @@ def weather(location: str):
 
     # Default picture to handle cases where we don't have weather data
     pic = pick_pic()
-    # Generate full URL for the static file
-    pic_url = url_for("static", filename=f"catpics/{pic}")
+    
+    # Quick validation for obviously invalid locations
+    if len(location.strip()) < 2:
+        error_html = f"<h2>Invalid Location</h2><p>Please enter a valid location name.</p>"
+        return render_template(
+            "base.html",
+            title=f"Invalid Location - {location}",
+            wxmeow={"wxmeow": error_html, "futuremeow": ""},
+            pic=pic,
+        )
+
+    # Validate location format early to avoid API calls for obviously bad input
+    if not any(c.isalpha() for c in location):
+        # No letters at all - likely garbage input
+        error_html = f"<h2>Invalid Location Format</h2><p>Location must contain letters. Try 'Chicago, IL' or '60601'.</p>"
+        return render_template(
+            "base.html",
+            title=f"Invalid Location - {location}",
+            wxmeow={"wxmeow": error_html, "futuremeow": ""},
+            pic=pic,
+        )
 
     # Check if we can find coordinates for this location
     try:
-        # Validate the location before fetching weather data
+        # Check if we can find coordinates for this location
         coords = get_coordinates(location)
         if not coords:
             logger.warning(f"No coordinates found for location: {location}")
-            error_html = f"<h2>Location Not Found</h2><p>We couldn't find coordinates for '{location}'. Please try a more specific location like 'Chicago, IL' or a zip code.</p>"
+            if is_canadian_location(location):
+                error_html = f"<h2>Canadian Location</h2><p>Canadian weather data is available but currently limited. We're working to improve coverage for Canadian locations.</p><p>For now, try using specific coordinates or a nearby US location for detailed weather information.</p>"
+            else:
+                error_html = f"<h2>Location Not Found</h2><p>We couldn't find coordinates for '{location}'. Please try a more specific location like 'Chicago, IL' or a zip code.</p>"
             return render_template(
                 "base.html",
                 title=f"Location Not Found - {location}",
                 wxmeow={"wxmeow": error_html, "futuremeow": ""},
-                pic=pic_url,
+                pic=pic,
             )
     except GeocodeError as ge:
         logger.error(f"Geocoding service error: {str(ge)}")
@@ -145,21 +133,59 @@ def weather(location: str):
             "base.html",
             title=f"Service Error - {location}",
             wxmeow={"wxmeow": error_html, "futuremeow": ""},
-            pic=pic_url,
+            pic=pic,
         )
     except Exception as e:
         logger.error(f"Location validation error: {str(e)}")
         # Continue and let the weather query handle it
 
     try:
-        # Create the wxmeow object for this location
-        meow = wxmeow(location)
+        # For Canadian locations, try the Canadian weather service first  
+        if is_canadian_location(location):
+            logger.info(f"Detected Canadian location: {location}, trying Canadian weather sources")
+            
+            # For now, show a clean message for Canadian locations
+            # The user specifically requested to not show the confusing forecast tables
+            class CanadianLocationMessage:
+                def __init__(self, location: str):
+                    display_name = location.replace('_', ' ').title()
+                    if ',' in display_name:
+                        parts = display_name.split(',')
+                        if len(parts) >= 2:
+                            display_name = f"{parts[0].strip()}, {parts[1].strip().upper()}, Canada"
+                    
+                    self.wxmeow = f"""
+                    <h1>{display_name}</h1>
+                    <h2>Canadian Location</h2>
+                    <p style="font-size: 1.2em; line-height: 1.6; max-width: 600px; margin: 20px auto;">
+                        Weather data for Canadian locations is currently limited. We're working to add 
+                        Environment and Climate Change Canada as a data source.
+                    </p>
+                    <p style="font-size: 1em; color: #666; max-width: 600px; margin: 20px auto;">
+                        For now, please try using specific coordinates or a nearby US location for 
+                        detailed weather information.
+                    </p>
+                    """
+                    self.futuremeow = ""  # No confusing forecast table
+                    
+            canadian_msg = CanadianLocationMessage(location) 
+            add_to_location_history(location, location.replace('_', ' ').title())
+            
+            return render_template(
+                "base.html",
+                title=f"{location} - Canadian Location",
+                wxmeow=canadian_msg,
+                pic=pic,
+                location=location,
+            )
+        else:
+            # Create the wxmeow object for this location
+            meow = wxmeow(location, include_hourly=True)
 
         # Only try to get a weather-specific picture if we have valid weather data
         if hasattr(meow, "meowobs") and meow.meowobs != "unknown":
             try:
                 pic = pick_pic(weather=meow.meowobs)
-                pic_url = url_for("static", filename=f"catpics/{pic}")
             except Exception as e:
                 logger.error(
                     f'Couldn\'t get picture for weather: "{meow.meowobs}": {str(e)}'
@@ -171,18 +197,20 @@ def weather(location: str):
         temp = getattr(meow, "meowtemp", "??")
         place = getattr(meow, "meowplace", location)
 
-        # Add this location to the history
-        add_to_location_history(location, place)
-
         logger.debug(f"Weather for {location}: {place} - {weather_desc} {temp}F")
+
+        # Add to location history on successful weather lookup
+        try:
+            add_to_location_history(location, place)
+        except Exception as e:
+            logger.warning(f"Could not add location to history: {str(e)}")
 
         # Return the template with weather data
         return render_template(
             "base.html",
             title=place,
             wxmeow=meow,
-            pic=pic_url,
-            theme=get_theme_preference(),
+            pic=pic,
             location=location,
         )
 
@@ -207,8 +235,7 @@ def weather(location: str):
             "base.html",
             title=f"Weather Unavailable - {location}",
             wxmeow=ErrorMessage(error_html),
-            pic=pic_url,
-            theme=get_theme_preference(),
+            pic=pic,
             location=location,
         )
 
@@ -226,38 +253,29 @@ def weather(location: str):
             "base.html",
             title=f"Weather Unavailable - {location}",
             wxmeow=ErrorMessage(error_html),
-            pic=pic_url,
-            theme=get_theme_preference(),
+            pic=pic,
             location=location,
         )
 
 
 @views_bp.errorhandler(404)
 def not_found(error: Exception):
-    return render_template("base.html", title="oops!", theme=get_theme_preference())
-
-
-@views_bp.route("/test/autocomplete")
-def test_autocomplete():
-    """Test page for the location autocomplete functionality."""
-    return render_template("test_autocomplete.html", theme=get_theme_preference())
+    return render_template("base.html", title="oops!")
 
 
 @views_bp.route("/test/chart")
 def test_chart():
     """Test page for the hourly temperature chart functionality."""
     location = request.args.get("location", "Chicago, IL")
-    return render_template(
-        "test_chart.html", location=location, theme=get_theme_preference()
-    )
+    return render_template("test_chart.html", location=location)
 
 
 @views_bp.route("/api/hourly/<location>")
 def api_hourly_data(location: str):
     """API endpoint to get hourly weather data for charts."""
     try:
-        # Create weather object to get hourly data
-        weather = wxmeow(location)
+        # Create weather object to get hourly data (including hourly for charts)
+        weather = wxmeow(location, include_hourly=True)
 
         # Return the processed hourly data
         if hasattr(weather, "meowhourly") and weather.meowhourly:
@@ -271,10 +289,4 @@ def api_hourly_data(location: str):
         return jsonify({"error": "Failed to get hourly data"}), 500
 
 
-@views_bp.route("/set-theme/<theme>")
-def set_theme(theme):
-    """Set the user's theme preference and redirect back."""
-    response = redirect(request.referrer or url_for("views.index"))
-    # Set theme cookie to expire in 1 year
-    response.set_cookie("theme", theme, max_age=31536000, samesite="Lax")
-    return response
+
