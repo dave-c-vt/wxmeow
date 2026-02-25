@@ -1,21 +1,35 @@
 import traceback
 import logging
-import random
+import threading
 
-from flask import render_template, redirect, url_for, session, request
+from flask import render_template, redirect, url_for, session, request, jsonify
 
 # Import logger directly to avoid circular import
 from wxmeow.views import views_bp
 from wxmeow.forms import wxlookup
 from wxmeow.wx2json_noaa import wxmeow
 from wxmeow.pics import pick_pic
-from flask import jsonify
-from wxmeow.weather_query import ApiError, LocationError, DataParsingError, is_canadian_location
+from wxmeow.weather_query import ApiError, LocationError, DataParsingError, is_canadian_location, iszipcode
 from wxmeow.location_service import get_coordinates, GeocodeError
-from flask import current_app
+from wxmeow.pickler import load_meow, CacheReadError
 
 # Get logger
 logger = logging.getLogger("wxmeow")
+
+# Track locations currently being fetched in the background
+_fetching_locations: set = set()
+_fetching_lock = threading.Lock()
+
+
+def _fetch_weather_background(location: str) -> None:
+    """Background thread: fetch weather data and save to cache."""
+    try:
+        wxmeow(location, include_hourly=True)
+    except Exception as e:
+        logger.warning(f"Background fetch failed for {location}: {e}")
+    finally:
+        with _fetching_lock:
+            _fetching_locations.discard(location)
 
 
 # Remove all emoji - use simple text descriptions instead
@@ -100,9 +114,9 @@ def weather(location: str):
         )
 
     # Validate location format early to avoid API calls for obviously bad input
-    if not any(c.isalpha() for c in location):
-        # No letters at all - likely garbage input
-        error_html = f"<h2>Invalid Location Format</h2><p>Location must contain letters. Try 'Chicago, IL' or '60601'.</p>"
+    # Allow zip codes (5 digits) through even though they have no letters
+    if not any(c.isalpha() for c in location) and not iszipcode(location.strip()):
+        error_html = f"<h2>Invalid Location Format</h2><p>Try a city name like 'Chicago, IL', a zip code like '60601', or coordinates.</p>"
         return render_template(
             "base.html",
             title=f"Invalid Location - {location}",
@@ -116,10 +130,7 @@ def weather(location: str):
         coords = get_coordinates(location)
         if not coords:
             logger.warning(f"No coordinates found for location: {location}")
-            if is_canadian_location(location):
-                error_html = f"<h2>Canadian Location</h2><p>Canadian weather data is available but currently limited. We're working to improve coverage for Canadian locations.</p><p>For now, try using specific coordinates or a nearby US location for detailed weather information.</p>"
-            else:
-                error_html = f"<h2>Location Not Found</h2><p>We couldn't find coordinates for '{location}'. Please try a more specific location like 'Chicago, IL' or a zip code.</p>"
+            error_html = f"<h2>Location Not Found</h2><p>We couldn't find coordinates for '{location}'. Please try a more specific location like 'Chicago, IL' or a zip code.</p>"
             return render_template(
                 "base.html",
                 title=f"Location Not Found - {location}",
@@ -139,48 +150,39 @@ def weather(location: str):
         logger.error(f"Location validation error: {str(e)}")
         # Continue and let the weather query handle it
 
+    # Check if we have a fresh cache; if not, show loading animation while fetching in background
     try:
-        # For Canadian locations, try the Canadian weather service first  
-        if is_canadian_location(location):
-            logger.info(f"Detected Canadian location: {location}, trying Canadian weather sources")
-            
-            # For now, show a clean message for Canadian locations
-            # The user specifically requested to not show the confusing forecast tables
-            class CanadianLocationMessage:
-                def __init__(self, location: str):
-                    display_name = location.replace('_', ' ').title()
-                    if ',' in display_name:
-                        parts = display_name.split(',')
-                        if len(parts) >= 2:
-                            display_name = f"{parts[0].strip()}, {parts[1].strip().upper()}, Canada"
-                    
-                    self.wxmeow = f"""
-                    <h1>{display_name}</h1>
-                    <h2>Canadian Location</h2>
-                    <p style="font-size: 1.2em; line-height: 1.6; max-width: 600px; margin: 20px auto;">
-                        Weather data for Canadian locations is currently limited. We're working to add 
-                        Environment and Climate Change Canada as a data source.
-                    </p>
-                    <p style="font-size: 1em; color: #666; max-width: 600px; margin: 20px auto;">
-                        For now, please try using specific coordinates or a nearby US location for 
-                        detailed weather information.
-                    </p>
-                    """
-                    self.futuremeow = ""  # No confusing forecast table
-                    
-            canadian_msg = CanadianLocationMessage(location) 
-            add_to_location_history(location, location.replace('_', ' ').title())
-            
-            return render_template(
-                "base.html",
-                title=f"{location} - Canadian Location",
-                wxmeow=canadian_msg,
-                pic=pic,
-                location=location,
-            )
-        else:
-            # Create the wxmeow object for this location
-            meow = wxmeow(location, include_hourly=True)
+        cached_meow, cached_age = load_meow(location)
+        is_canadian = is_canadian_location(location)
+        cache_timeout = 45 if is_canadian else 15
+        has_fresh_cache = (cached_meow is not None and cached_age is not None and cached_age <= cache_timeout)
+    except CacheReadError:
+        has_fresh_cache = False
+
+    if not has_fresh_cache:
+        # Start background fetch if not already in progress
+        with _fetching_lock:
+            if location not in _fetching_locations:
+                _fetching_locations.add(location)
+                t = threading.Thread(target=_fetch_weather_background, args=(location,), daemon=True)
+                t.start()
+        # Add to history now with raw location; the actual weather page will update display_name
+        try:
+            add_to_location_history(location, location)
+        except Exception:
+            pass
+        return render_template(
+            "base.html",
+            title=f"loading... | {location}",
+            loading=True,
+            loading_location=location,
+            pic=pic,
+        )
+
+    try:
+        # Create the wxmeow object for this location
+        # The wxmeow class now handles Canadian and European locations with proper weather sources
+        meow = wxmeow(location, include_hourly=True)
 
         # Only try to get a weather-specific picture if we have valid weather data
         if hasattr(meow, "meowobs") and meow.meowobs != "unknown":
@@ -256,6 +258,19 @@ def weather(location: str):
             pic=pic,
             location=location,
         )
+
+
+@views_bp.route("/wx/<location>/ready")
+def weather_ready(location: str):
+    """Polling endpoint: returns {"ready": true} when fresh cache is available."""
+    try:
+        meow, age = load_meow(location)
+        is_canadian = is_canadian_location(location)
+        cache_timeout = 45 if is_canadian else 15
+        ready = (meow is not None and age is not None and age <= cache_timeout)
+    except CacheReadError:
+        ready = False
+    return jsonify({"ready": ready})
 
 
 @views_bp.errorhandler(404)

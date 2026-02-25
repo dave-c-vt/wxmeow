@@ -1,107 +1,112 @@
-from typing import List, Optional
+"""
+Background weather refresh for wxmeow.
+
+Refreshes cached weather data for locations that have been viewed in the
+last 3 days. Meant to run as a daemon thread inside the Flask app so that
+fresh data is ready immediately when a user revisits a location.
+"""
+
 import glob
+import logging
 import os
-import shutil
 import sys
 import time
 import traceback
+from typing import List
 
 try:
     from wxmeow import logger
-    from . import wx2json_noaa as wx
 except ImportError:
-    import logging
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     logger.addHandler(logging.StreamHandler())
-    import wx2json_noaa as wx
 
-# Import exception classes or define locally if needed
-try:
-    from .wx2json_noaa import WeatherDataError
-except ImportError:
-    class WeatherDataError(Exception):
-        pass
 
-try:
-    from .pickler import CacheReadError, CacheWriteError
-except ImportError:
-    class CacheReadError(Exception):
-        def __init__(self, cache_key, message=None):
-            self.cache_key = cache_key
-            self.message = message
-            super().__init__(f"Cache read error: {cache_key} - {message}" if message else f"Cache read error: {cache_key}")
+# Age thresholds
+_THREE_DAYS_SECONDS = 3 * 24 * 60 * 60
+_DEFAULT_REFRESH_SECONDS = 30 * 60  # 30 minutes
 
-    class CacheWriteError(Exception):
-        def __init__(self, cache_key, message=None):
-            self.cache_key = cache_key
-            self.message = message
-            super().__init__(f"Cache write error: {cache_key} - {message}" if message else f"Cache write error: {cache_key}")
 
-def refresh_meows(max_age_seconds: int = 600) -> List[str]:
+def refresh_meows(max_age_seconds: int = _DEFAULT_REFRESH_SECONDS) -> List[str]:
     """
-    Refresh weather data for locations with stale pickle files.
+    Refresh weather data for recently-viewed locations.
+
+    A location is eligible for refresh when:
+    - Its pickle file is older than max_age_seconds (stale), AND
+    - It was viewed within the last 3 days (file mtime < 3 days ago)
+
+    The wxmeow() constructor saves fresh data to cache automatically, so
+    no explicit save step is needed here.
 
     Args:
-        max_age_seconds: Maximum age in seconds before refreshing a pickle file
+        max_age_seconds: Minimum age in seconds before refreshing (default: 30 min)
 
     Returns:
-        List of locations that were refreshed
+        List of location strings that were refreshed.
     """
-    ext = ".pkl"
-    refreshed_locations: List[str] = []
+    # Import here to avoid circular imports at module load time
+    try:
+        from wxmeow import wx2json_noaa as wx
+    except ImportError:
+        import wx2json_noaa as wx  # type: ignore
+
+    refreshed: List[str] = []
+    now = time.time()
+    cutoff_recent = now - _THREE_DAYS_SECONDS
 
     try:
-        files = sorted(glob.glob("../*" + ext))
-        now = time.time()
+        pkl_files = glob.glob("*.pkl")
+        logger.info(f"refresh_meows: checking {len(pkl_files)} cached location(s)")
 
-        for f in files:
+        for pkl_path in pkl_files:
             try:
-                # Extract location from filename
-                loc = f.split("/")[1].split(".")[0]
+                mtime = os.path.getmtime(pkl_path)
 
-                # Check if file is older than max_age_seconds
+                # Skip files not viewed in the last 3 days
+                if mtime < cutoff_recent:
+                    continue
+
+                age_seconds = now - mtime
+                if age_seconds < max_age_seconds:
+                    continue
+
+                # Derive the location string from the filename
+                loc = os.path.splitext(os.path.basename(pkl_path))[0]
+                # Reverse the simple sanitization: underscores back to spaces
+                # This is lossy but good enough for the refresh use case
+                loc_display = loc.replace("_", " ").strip()
+
+                logger.info(
+                    f"Refreshing '{loc_display}' (age: {age_seconds/60:.1f} min)"
+                )
                 try:
-                    file_age = now - os.path.getmtime(f)
-                    if file_age > max_age_seconds:
-                        logger.info(f"Refreshing {loc} (age: {file_age/60:.1f} min)")
+                    wx.wxmeow(loc_display, include_hourly=True)
+                    refreshed.append(loc_display)
+                except Exception as e:
+                    logger.warning(f"Could not refresh '{loc_display}': {e}")
 
-                        try:
-                            # Create new weather data
-                            meow = wx.wxmeow(loc)
-
-                            # Move file (with backup)
-                            try:
-                                shutil.move(f.split("/")[1], f)
-                                refreshed_locations.append(loc)
-                            except (shutil.Error, IOError) as e:
-                                logger.error(f"Error moving file for {loc}: {str(e)}")
-                                raise CacheWriteError(loc, f"File move error: {str(e)}")
-                        except WeatherDataError as e:
-                            logger.error(f"Weather data error for {loc}: {str(e)}")
-                        except (CacheReadError, CacheWriteError) as e:
-                            logger.error(f"Cache error for {loc}: {str(e)}")
-                        except Exception as e:
-                            logger.error(f"Unexpected error for {loc}: {str(e)}")
-                except OSError as e:
-                    logger.error(f"Error accessing file {f}: {str(e)}")
+            except OSError as e:
+                logger.warning(f"Could not access {pkl_path}: {e}")
             except Exception as e:
-                logger.error(f"Error processing {f}: {str(e)}")
+                logger.error(f"Unexpected error for {pkl_path}: {e}")
                 logger.debug(traceback.format_exc())
+
     except Exception as e:
-        logger.error(f"Error in refresh_meows: {str(e)}")
+        logger.error(f"Error in refresh_meows: {e}")
         logger.debug(traceback.format_exc())
 
-    return refreshed_locations
+    if refreshed:
+        logger.info(f"refresh_meows: refreshed {len(refreshed)} location(s): {refreshed}")
+    return refreshed
+
 
 if __name__ == "__main__":
-    # Allow custom max age from command line
-    max_age = 600  # Default: 10 minutes
+    max_age = _DEFAULT_REFRESH_SECONDS
     if len(sys.argv) > 1:
         try:
             max_age = int(sys.argv[1])
         except ValueError:
-            logger.error(f"Invalid max age: {sys.argv[1]}. Using default: 600 seconds")
+            logger.error(f"Invalid max age: {sys.argv[1]}. Using default: {max_age}s")
 
-    refreshed = refresh_meows(max_age)
-    logger.info(f"Refreshed {len(refreshed)} locations")
+    result = refresh_meows(max_age)
+    logger.info(f"Refreshed {len(result)} location(s)")

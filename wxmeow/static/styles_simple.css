@@ -91,25 +91,35 @@ table {
 .total {
     max-width: 960px;
     margin: auto;
+    padding: 0 20px;
+    box-sizing: border-box;
 }
 
-/* Essential chart styles for hourly functionality */
+/* Forecast day picker — scrollable, no visible scrollbar */
+.forecast-container {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.forecast-container::-webkit-scrollbar {
+    display: none;
+}
+
+/* Chart styles */
 .hourly-chart {
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 15px;
-    margin: 20px auto;
+    border: 1px solid lightgray;
+    padding: 10px;
+    margin: 16px auto;
     max-width: 95%;
-    height: 350px;
+    height: 220px;
     width: 100%;
     display: block;
-    min-height: 300px;
+    min-height: 200px;
     position: relative;
 }
 
 .temperature-chart {
     width: 100% !important;
-    height: 320px !important;
+    height: 200px !important;
     max-width: 100%;
     margin: 0 auto;
     display: block;
@@ -117,11 +127,11 @@ table {
 }
 
 [id^="hourly-temperature-chart-"] {
-    height: 350px !important;
-    min-height: 350px !important;
+    height: 200px !important;
+    min-height: 180px !important;
     width: 100% !important;
     max-width: 800px !important;
-    margin: 20px auto !important;
+    margin: 16px auto !important;
     display: none;
 }
 
@@ -150,3 +160,75 @@ table {
     border: 1px solid black;
     text-decoration: none !important;
 }
+
+/* Loading animation */
+.wx-loading {
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.loading-cat {
+    font-family: monospace;
+    font-size: 1.4em;
+    letter-spacing: 2px;
+    margin: 20px auto;
+    display: inline-block;
+}
+
+.loading-msg {
+    font-size: 0.9em;
+    color: #666;
+}
+
+/* Weather alerts */
+.wx-alerts {
+    margin: 16px auto;
+    max-width: 800px;
+    text-align: left;
+}
+
+.wx-alert {
+    border-left: 4px solid lightgray;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+.wx-alert strong {
+    display: block;
+    margin-bottom: 2px;
+}
+
+.wx-alert-area {
+    font-size: 0.85em;
+    color: #555;
+}
+
+.wx-alert-expires {
+    font-size: 0.8em;
+    color: #666;
+    margin-top: 4px;
+}
+
+.wx-alert-extreme {
+    border-left-color: #8b0000;
+    background-color: #fff5f5;
+}
+
+.wx-alert-severe {
+    border-left-color: #cc3300;
+    background-color: #fff8f5;
+}
+
+.wx-alert-moderate {
+    border-left-color: #cc7700;
+    background-color: #fffbf0;
+}
+
+.wx-alert-minor {
+    border-left-color: #888800;
+    background-color: #fffff0;
+}
+

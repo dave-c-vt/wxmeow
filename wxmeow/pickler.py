@@ -132,6 +132,17 @@ def load_meow(location: str) -> Tuple[Optional[Any], Optional[float]]:
         pickle_age = (time.time() - os.path.getmtime(pickle_name)) / 60
         with open(pickle_name, "rb") as pkl:
             meow = pickle.load(pkl)
+        
+        # Check if cached object has required attributes for Canadian weather
+        try:
+            from wxmeow.weather_query import is_canadian_location
+        except ImportError:
+            is_canadian_location = lambda loc: False
+        if location and is_canadian_location(location):
+            if not hasattr(meow, 'meowforecast') or meow.meowforecast is None:
+                logger.info(f"Canadian cache for {location} missing forecast data, invalidating cache")
+                return None, None
+        
         logger.debug(f"Loaded pickle for {location}, age: {pickle_age:.1f} minutes")
         return meow, pickle_age
     except (FileNotFoundError, PermissionError) as e:

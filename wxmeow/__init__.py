@@ -1,5 +1,8 @@
 from flask import Flask
 import logging
+import os
+import threading
+import time
 from os.path import dirname, join, realpath
 
 
@@ -19,6 +22,19 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 
+def _auto_refresh_loop() -> None:
+    """Daemon thread: refresh stale cached forecasts every 30 minutes."""
+    from wxmeow.refresh_meows import refresh_meows, _DEFAULT_REFRESH_SECONDS
+    # Stagger the first run so startup isn't slowed down
+    time.sleep(60)
+    while True:
+        try:
+            refresh_meows(_DEFAULT_REFRESH_SECONDS)
+        except Exception as e:
+            logger.warning(f"Auto-refresh error: {e}")
+        time.sleep(_DEFAULT_REFRESH_SECONDS)
+
+
 def create_app():
     """Application factory function"""
     app = Flask(__name__, static_url_path=join(dirname(realpath(__file__)), "static/"))
@@ -32,6 +48,12 @@ def create_app():
 
     init_views(app)
     init_api(app)
+
+    # Start background refresh thread (only in the actual worker, not the reloader)
+    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        t = threading.Thread(target=_auto_refresh_loop, daemon=True, name="wx-auto-refresh")
+        t.start()
+        logger.info("Auto-refresh background thread started")
 
     return app
 
