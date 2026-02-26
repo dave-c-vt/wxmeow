@@ -12,9 +12,32 @@ import time
 import logging
 import traceback
 import json
+import os
+import re
 from datetime import datetime, date as _date
 from typing import Dict, List, Any, Optional
-# Removed custom weather icons - using NOAA icons directly
+
+_ICONS_DIR = os.path.join(os.path.dirname(__file__), 'static', 'icons')
+
+
+def _noaa_url_to_local(icon_url: str) -> str:
+    """Return a Flask-generated URL for a local pixel-art SVG, or '' if unavailable."""
+    try:
+        m = re.search(r'/icons/land/(day|night)/([^/?]+)', icon_url)
+        if not m:
+            return ''
+        time_of_day, raw_code = m.group(1), m.group(2)
+        code = raw_code.split(',')[0]
+        if time_of_day == 'night':
+            night_code = f'{code}_night'
+            if os.path.exists(os.path.join(_ICONS_DIR, f'{night_code}.svg')):
+                code = night_code
+        if os.path.exists(os.path.join(_ICONS_DIR, f'{code}.svg')):
+            from flask import url_for
+            return url_for('static', filename=f'icons/{code}.svg')
+    except Exception:
+        pass
+    return ''
 
 from wxmeow.weather_query import (
     noaa,
@@ -82,7 +105,7 @@ class wxmeow:
                 is_canadian = is_canadian_location(self.location)
                 is_european = is_european_location(self.location)
                 cache_timeout = 45 if (is_canadian or is_european) else 15  # Reduced cache timeout for faster updates
-                
+
                 if self.age is None or self.meow is None or self.age > cache_timeout:
                     logger.info(
                         f"Cache miss or expired for {location} (age: {self.age}, timeout: {cache_timeout}), fetching new data"
@@ -120,17 +143,17 @@ class wxmeow:
             # Extract current conditions - handle different API formats
             if hasattr(self.meow, 'jconditions') and self.meow.jconditions:
                 self._extract_conditions_data()
-            
+
             # Always try to process forecast data, even if conditions are missing
             self._process_forecast_data()
-            
+
             # Continue with HTML building
             self._build_html()
-                
+
         except Exception as e:
             logger.error(f"Error processing weather data: {str(e)}")
             logger.debug(traceback.format_exc())
-            
+
     def _build_html(self):
         """Build the HTML representation of weather data"""
         table = "<table>", "</table>"
@@ -144,7 +167,7 @@ class wxmeow:
             has_conditions = self.meowobs != "unknown"
             has_pressure = self.meowbp != "??"
             has_dewpoint = self.meowdp != "??"
-            
+
             # If this looks like a failed lookup, provide a better message but still show forecast
             if not has_temp and not has_conditions:
                 if is_canadian_location(self.location):
@@ -160,18 +183,18 @@ class wxmeow:
                 # We have some data, build the normal display
                 temp_text = f"{self.meowtemp} F" if has_temp else "temperature unavailable"
                 condition_text = self.meowobs if has_conditions else "conditions unknown"
-                
+
                 wxmeow = f"<h1>{self.meowplace}<br> <small>is</small> {condition_text} <small>and</small> {temp_text}"
-                
+
                 if has_dewpoint:
                     wxmeow += f"</br></br>dew point <small>is</small> {self.meowdp} F"
-                
+
                 if has_pressure:
                     wxmeow += f"</br>pressure <small>is</small> {self.meowbptrend} <small>at</small> {self.meowbp} inches"
-                
+
                 wxmeow += "</h1>"
                 self.wxmeow = wxmeow.lower()
-                
+
         except Exception as e:
             logger.error(f"Error creating weather HTML: {str(e)}")
             # Create a simpler version with whatever data we have
@@ -186,7 +209,7 @@ class wxmeow:
             logger.debug(traceback.format_exc())
             self.meowhourly = []
 
-        # If we don't have hourly data, log and continue without dummy data  
+        # If we don't have hourly data, log and continue without dummy data
         if not self.meowhourly or len(self.meowhourly) == 0:
             logger.info("No hourly data available - will not generate dummy data")
             self.meowhourly = []
@@ -216,8 +239,9 @@ class wxmeow:
                 forecast_table += f'<td style="text-align: center; padding: 4px; cursor: pointer; min-width: 100px;" id="{i}" class="day-selector weather-icon-cell" onclick="{onclick_handler}" data-date="{day_date}" role="button" aria-label="Select period {i + 1} forecast" tabindex="0">\n'
 
                 if icon_url:
-                    large_icon_url = icon_url.replace('size=small', 'size=large').replace('size=medium', 'size=large')
-                    forecast_table += f'<img src="{large_icon_url}" alt="Weather forecast" style="display: block; margin: 0 auto; width: 160px; height: 160px;" />\n'
+                    local = _noaa_url_to_local(icon_url)
+                    img_src = local if local else icon_url.replace('size=small', 'size=large').replace('size=medium', 'size=large')
+                    forecast_table += f'<img src="{img_src}" alt="Weather forecast" style="display: block; margin: 0 auto; width: 160px; height: 160px; image-rendering: pixelated;" />\n'
                 else:
                     day_num = i + 1 if i > 0 else "today"
                     forecast_table += f'<div style="width: 160px; height: 160px; background: #f0f0f0; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 11px; flex-direction: column;"><div>day</div><div>{day_num}</div></div>\n'
@@ -259,7 +283,7 @@ class wxmeow:
 
         # Combine forecast table, descriptions, and chart area
         self.futuremeow = forecast_table + day_descriptions + futuretext
-        
+
         # Generate the JavaScript for the charts at the end
         self.javascript()
 
@@ -299,15 +323,15 @@ class wxmeow:
                     try:
                         period = periods[i]
                         is_daytime = period.get("isDaytime", True)
-                        
+
                         if is_daytime:
                             # This is a daytime period
                             day_period = period
                             night_period = periods[i + 1] if i + 1 < len(periods) else None
-                            
+
                             # Use the day name directly from NOAA ("today", "monday", "tuesday", etc.)
                             base_name = period.get("name", f"day {len(self.dayname) + 1}").lower()
-                            
+
                             self.dayname.append(base_name)
                             self.meowfc.append(period.get("icon", ""))
                             # Store the actual calendar date (YYYY-MM-DD) for chart alignment
@@ -317,12 +341,12 @@ class wxmeow:
                             # Get temperatures from both periods and determine which is high/low
                             day_temp = day_period.get("temperature", "")
                             night_temp = night_period.get("temperature", day_temp) if night_period else day_temp
-                            
+
                             # Determine high and low temperatures correctly
                             try:
                                 day_temp_val = float(day_temp) if day_temp and day_temp != "" else None
                                 night_temp_val = float(night_temp) if night_temp and night_temp != "" else None
-                                
+
                                 if day_temp_val is not None and night_temp_val is not None:
                                     high_temp = max(day_temp_val, night_temp_val)
                                     low_temp = min(day_temp_val, night_temp_val)
@@ -332,7 +356,7 @@ class wxmeow:
                                     high_temp = low_temp = night_temp_val
                                 else:
                                     high_temp = low_temp = ""
-                                    
+
                                 # Filter out N/A values before appending using safe function
                                 high_str = self._safe_temp_string(high_temp)
                                 low_str = self._safe_temp_string(low_temp)
@@ -344,11 +368,11 @@ class wxmeow:
                                 night_str = self._safe_temp_string(night_temp)
                                 self.meowtp.append(day_str)
                                 self.meowlt.append(night_str)
-                            
+
                             # Create detail with day description
                             day_forecast = day_period.get("detailedForecast", day_period.get("shortForecast", "no forecast available")).lower()
                             self.detail.append(f"<h3>{base_name}</h3>{day_forecast}")
-                            
+
                             logger.debug(f"Processed forecast day {len(self.dayname)-1}: {base_name} ({day_temp}°F/{night_temp}°F)")
                             # Only skip the night period if it exists, otherwise just advance by 1
                             if night_period:
@@ -360,7 +384,7 @@ class wxmeow:
                             night_period = period
                             raw_name = period.get("name", "")
                             base_name = (raw_name.replace(" Night", "").strip() or f"day {len(self.dayname) + 1}").lower()
-                            
+
                             self.dayname.append(base_name)
                             self.meowfc.append(period.get("icon", ""))
                             start_time = period.get("startTime", "")
@@ -370,13 +394,13 @@ class wxmeow:
                             night_temp = night_period.get("temperature", "")
                             self.meowtp.append(str(night_temp))
                             self.meowlt.append(str(night_temp))
-                            
+
                             night_forecast = night_period.get("detailedForecast", night_period.get("shortForecast", "no forecast available")).lower()
                             self.detail.append(f"<h3>{base_name}</h3>{night_forecast}")
-                            
+
                             logger.debug(f"Processed forecast night {len(self.dayname)-1}: {base_name} ({night_temp}°F)")
                             i += 1
-                            
+
                     except Exception as e:
                         logger.warning(f"Error processing forecast period {i}: {str(e)}")
                         # Add placeholder data for this period
@@ -387,7 +411,7 @@ class wxmeow:
                         self.meowlt.append(str(self._get_current_temp_or_default() - 15))
                         self.detail.append(f"<h3>day {len(self.dayname)-1}</h3>No forecast available")
                         i += 1
-                
+
                 logger.info(f"Processed {len(self.dayname)} forecast periods")
             elif (
                 hasattr(self.meow, "jforecast")
@@ -407,11 +431,11 @@ class wxmeow:
                     self.dayname.append(day_name)
                     self.meowfc.append("")
                     self.meowdates.append(item.get("date", ""))
-                    
+
                     # Extract temperatures
                     high_temp = item.get('high', '')
                     low_temp = item.get('low', '')
-                    
+
                     # Convert to Fahrenheit if needed (Canadian data might be in Celsius)
                     try:
                         if isinstance(high_temp, (int, float)):
@@ -422,13 +446,13 @@ class wxmeow:
                             # Ensure we don't pass through N/A values
                             temp_str = self._safe_temp_string(high_temp)
                             self.meowtp.append(temp_str)
-                            
+
                         if isinstance(low_temp, (int, float)):
-                            # Convert from Celsius to Fahrenheit for display consistency  
+                            # Convert from Celsius to Fahrenheit for display consistency
                             low_temp_f = int(low_temp * 9/5 + 32)
                             self.meowlt.append(str(low_temp_f))
                         else:
-                            # Ensure we don't pass through N/A values  
+                            # Ensure we don't pass through N/A values
                             temp_str = self._safe_temp_string(low_temp)
                             self.meowlt.append(temp_str)
                     except (ValueError, TypeError):
@@ -437,17 +461,17 @@ class wxmeow:
                         low_str = self._safe_temp_string(low_temp)
                         self.meowtp.append(high_str)
                         self.meowlt.append(low_str)
-                    
+
                     # Add condition description
                     condition = item.get('condition', 'no forecast available').lower()
                     self.detail.append(f"<h3>{day_name}</h3>{condition}")
-                
+
                 logger.info(f"Processed {len(forecast_items)} forecast items from list format")
             else:
                 logger.warning("No forecast data available")
                 # Check if location failed completely vs partial data
                 has_any_data = (self.meowtemp != "??" or self.meowobs != "unknown")
-                
+
                 if not has_any_data:
                     self.dayname.append("today")
                     self.meowfc.append("")
@@ -465,26 +489,26 @@ class wxmeow:
         except Exception as e:
             logger.error(f"Error processing forecast: {str(e)}")
             logger.debug(traceback.format_exc())
-            
+
         # Create meowforecast attribute for API consumption
         self._create_forecast_json()
-        
+
     def _get_seasonal_fallback_temp(self):
         """Get reasonable fallback temperature based on current date"""
         import datetime
         import random
         month = datetime.datetime.now().month
-        
+
         # Seasonal temperatures in Fahrenheit for fallback
         if month in [12, 1, 2]:  # Winter
             return random.randint(25, 45)
-        elif month in [3, 4, 5]:  # Spring  
+        elif month in [3, 4, 5]:  # Spring
             return random.randint(50, 70)
         elif month in [6, 7, 8]:  # Summer
             return random.randint(70, 85)
         else:  # Fall (9, 10, 11)
             return random.randint(45, 65)
-            
+
     def _get_current_temp_or_default(self):
         """Get current temperature or reasonable default"""
         try:
@@ -496,7 +520,7 @@ class wxmeow:
                     return int(temp_match.group())
         except (ValueError, TypeError, AttributeError):
             pass
-        
+
         # Fallback to seasonal temp
         return self._get_seasonal_fallback_temp()
 
@@ -504,7 +528,7 @@ class wxmeow:
         """Add placeholder data for a single forecast day"""
         self.dayname.append(f"day {day_index}")
         self.meowfc.append("")
-        
+
         if show_unavailable:
             self.meowtp.append("")  # Empty string will be handled as "—" in display
             self.meowlt.append(str(self._get_current_temp_or_default() - 15))  # Use reasonable temp instead of empty
@@ -525,11 +549,11 @@ class wxmeow:
         """Extract current conditions from different weather API formats"""
         try:
             conditions = self.meow.jconditions
-            
+
             # NOAA format (GeoJSON features)
             if isinstance(conditions, dict) and "features" in conditions and conditions["features"]:
                 feature = conditions["features"][0]["properties"]
-                
+
                 self.meowobs = feature.get("textDescription", "unknown")
 
                 if "temperature" in feature:
@@ -543,12 +567,12 @@ class wxmeow:
 
                 if "features" in conditions:
                     self.meowbptrend = self.check_pressure_trend(conditions["features"])
-            
+
             # Environment Canada format (nested properties structure)
-            elif (isinstance(conditions, dict) and "type" in conditions and conditions["type"] == "Feature" 
+            elif (isinstance(conditions, dict) and "type" in conditions and conditions["type"] == "Feature"
                   and "properties" in conditions):
                 properties = conditions["properties"]
-                
+
                 self.meowobs = properties.get("textDescription", "unknown")
 
                 # Handle nested temperature structure
@@ -562,30 +586,30 @@ class wxmeow:
                     pressure_pa = properties["barometricPressure"].get("value")
                     if pressure_pa is not None:
                         self.meowbp = str(round(self.pa2inches(pressure_pa), 2))
-                        
+
                 # Set a default pressure trend for Environment Canada
                 self.meowbptrend = "steady"
-                    
+
             # Met.no format (direct properties)
             elif isinstance(conditions, dict) and "temperature" in conditions:
                 self.meowobs = conditions.get("condition", "unknown")
-                
+
                 if "temperature" in conditions:
                     temp_c = conditions["temperature"]
                     self.meowtemp = str(int(round(self.cel2fahr(temp_c))))
-                    
+
                 if "dewpoint" in conditions:
-                    dewpoint_c = conditions["dewpoint"] 
+                    dewpoint_c = conditions["dewpoint"]
                     self.meowdp = str(int(round(self.cel2fahr(dewpoint_c))))
-                    
+
                 if "pressure" in conditions:
                     pressure_hpa = conditions["pressure"]
                     # Convert hPa to inches of mercury (1 hPa = 0.02953 inHg)
                     self.meowbp = f"{pressure_hpa * 0.02953:.2f}"
-                    
+
                 # Set a default pressure trend for non-NOAA sources
                 self.meowbptrend = "steady"
-            
+
         except Exception as e:
             logger.error(f"Error extracting conditions data: {str(e)}")
             logger.debug(traceback.format_exc())
@@ -607,20 +631,20 @@ class wxmeow:
                 and "periods" in self.meow.jforecast["properties"]
             ):
                 periods = self.meow.jforecast["properties"]["periods"]
-                
+
                 # Check if this looks like NOAA-style alternating day/night periods
                 has_is_daytime = any(period.get("isDaytime") is not None for period in periods[:3])
-                
+
                 if has_is_daytime:
                     # Process NOAA-style alternating day/night periods into daily forecasts
                     logger.debug("Processing NOAA-style day/night periods")
                     daily_forecasts = []
-                    
+
                     i = 0
                     while i < len(periods) and len(daily_forecasts) < 5:
                         day_period = None
                         night_period = None
-                        
+
                         # Look for day period first
                         if i < len(periods) and periods[i].get("isDaytime"):
                             day_period = periods[i]
@@ -633,14 +657,14 @@ class wxmeow:
                             # Start with night period
                             night_period = periods[i]
                             i += 1
-                            # Look for next day period  
+                            # Look for next day period
                             if i < len(periods) and periods[i].get("isDaytime"):
                                 day_period = periods[i]
                                 i += 1
                         else:
                             i += 1
                             continue
-                        
+
                         # Create daily forecast from day/night pair
                         if day_period or night_period:
                             primary_period = day_period or night_period
@@ -651,10 +675,10 @@ class wxmeow:
                                 day_name = "today"
                             elif "tomorrow" in day_name and "night" in day_name:
                                 day_name = "tomorrow"
-                            
+
                             high_temp = day_period.get("temperature", "") if day_period else ""
                             low_temp = night_period.get("temperature", "") if night_period else ""
-                            
+
                             # Fix missing temperatures - ensure we always have valid values
                             if not high_temp and low_temp:
                                 # Use night temp + 10 as a reasonable high temp estimate
@@ -672,11 +696,11 @@ class wxmeow:
                                 # No temperatures available - use reasonable defaults
                                 high_temp = 60
                                 low_temp = 40
-                            
+
                             # Use day period for icon and description if available
                             icon = day_period.get("icon", "") if day_period else night_period.get("icon", "")
                             description = day_period.get("detailedForecast", "") if day_period else night_period.get("detailedForecast", "")
-                            
+
                             daily_forecasts.append({
                                 'name': day_name.lower(),
                                 'icon': icon,
@@ -684,7 +708,7 @@ class wxmeow:
                                 'low': str(low_temp),
                                 'description': description
                             })
-                    
+
                     # Add daily forecasts to arrays
                     for daily in daily_forecasts:
                         self.dayname.append(daily['name'])
@@ -692,7 +716,7 @@ class wxmeow:
                         self.meowtp.append(daily['high'])
                         self.meowlt.append(daily['low'])
                         self.detail.append(f"<h3>{daily['name']}</h3>{daily['description'].lower()}")
-                        
+
                 else:
                     # Process as simple period list (original logic for non-NOAA format)
                     logger.debug("Processing simple period list")
@@ -723,7 +747,7 @@ class wxmeow:
                 logger.warning("No forecast data available")
                 # Check if location failed completely vs partial data
                 has_any_data = (self.meowtemp != "??" or self.meowobs != "unknown")
-                
+
                 if not has_any_data:
                     self.dayname.append("today")
                     self.meowfc.append("")
@@ -741,7 +765,7 @@ class wxmeow:
         except Exception as e:
             logger.error(f"Error processing forecast: {str(e)}")
             logger.debug(traceback.format_exc())
-            
+
         # Create meowforecast attribute for API consumption
         self._create_forecast_json()
 
@@ -756,7 +780,7 @@ class wxmeow:
             has_conditions = self.meowobs != "unknown"
             has_pressure = self.meowbp != "??"
             has_dewpoint = self.meowdp != "??"
-            
+
             # If this looks like a failed lookup, provide a better message but still show forecast
             if not has_temp and not has_conditions:
                 if is_canadian_location(self.location):
@@ -772,18 +796,18 @@ class wxmeow:
                 # We have some data, build the normal display
                 temp_text = f"{self.meowtemp} F" if has_temp else "temperature unavailable"
                 condition_text = self.meowobs if has_conditions else "conditions unknown"
-                
+
                 wxmeow = f"<h1>{self.meowplace}<br> <small>is</small> {condition_text} <small>and</small> {temp_text}"
-                
+
                 if has_dewpoint:
                     wxmeow += f"</br></br>dew point <small>is</small> {self.meowdp} F"
-                
+
                 if has_pressure:
                     wxmeow += f"</br>pressure <small>is</small> {self.meowbptrend} <small>at</small> {self.meowbp} inches"
-                
+
                 wxmeow += "</h1>"
                 self.wxmeow = wxmeow.lower()
-                
+
         except Exception as e:
             logger.error(f"Error creating weather HTML: {str(e)}")
             # Create a simpler version with whatever data we have
@@ -798,7 +822,7 @@ class wxmeow:
             logger.debug(traceback.format_exc())
             self.meowhourly = []
 
-        # If we don't have hourly data, log and continue without dummy data  
+        # If we don't have hourly data, log and continue without dummy data
         if not self.meowhourly or len(self.meowhourly) == 0:
             logger.info("No hourly data available - will not generate dummy data")
             self.meowhourly = []
@@ -833,8 +857,9 @@ class wxmeow:
                 forecast_table += f'<td style="text-align: center; padding: 4px; cursor: pointer; min-width: 140px;" id="{i}" class="day-selector weather-icon-cell" onclick="{onclick_handler}" role="button" aria-label="Select period {i + 1} forecast" tabindex="0">\n'
 
                 if icon_url:
-                    large_icon_url = icon_url.replace('size=small', 'size=large').replace('size=medium', 'size=large')
-                    forecast_table += f'<img src="{large_icon_url}" alt="Weather forecast" style="display: block; margin: 0 auto; width: 160px; height: 160px;" />\n'
+                    local = _noaa_url_to_local(icon_url)
+                    img_src = local if local else icon_url.replace('size=small', 'size=large').replace('size=medium', 'size=large')
+                    forecast_table += f'<img src="{img_src}" alt="Weather forecast" style="display: block; margin: 0 auto; width: 160px; height: 160px; image-rendering: pixelated;" />\n'
                 else:
                     day_num = i + 1 if i > 0 else "today"
                     forecast_table += f'<div style="width: 160px; height: 160px; background: #f0f0f0; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 11px; flex-direction: column;"><div>day</div><div>{day_num}</div></div>\n'
@@ -856,12 +881,12 @@ class wxmeow:
         for i in range(5):
             temp_value = self.meowtp[i] if i < len(self.meowtp) else ""
             temp_display = self._format_temperature_safe(temp_value)
-            
+
             # Extra safety check to ensure no N/A values slip through
             if any(na_pattern in str(temp_display).lower() for na_pattern in ['n/a', 'na', 'n.a', 'null', 'undefined', 'error']):
                 temp_display = "—"  # Replace any N/A that somehow got through
                 logger.warning(f"Caught N/A value in temperature display for day {i}: {temp_value} -> replaced with —")
-            
+
             forecast_table += f'<td style="text-align: center; padding: 2px; font-weight: bold; font-size: 1.1em;">{temp_display}</td>\n'
 
         forecast_table += "</tr>\n</table>\n</div>\n"
@@ -908,7 +933,7 @@ class wxmeow:
         """
         # Comprehensive list of values to treat as unavailable/invalid
         invalid_values = {
-            None, "", "N/A", "n/a", "NA", "na", "??", "None", "NONE", 
+            None, "", "N/A", "n/a", "NA", "na", "??", "None", "NONE",
             "null", "NULL", "undefined", "UNDEFINED", "NaN", "nan",
             "-", "--", "---", "...", "TBD", "tbd", "Unknown", "unknown",
             "UNKNOWN", "nil", "NIL", "void", "VOID", "missing", "MISSING",
@@ -921,20 +946,20 @@ class wxmeow:
             "n.a.", "N.A.", "not available", "NOT AVAILABLE", "no data",
             "NO DATA", "data unavailable", "DATA UNAVAILABLE"
         }
-        
+
         # Check if value is in invalid set or string representation is invalid
         if temp_value in invalid_values:
             logger.debug(f"Filtered invalid temperature value (direct match): {temp_value!r}")
             return "—"  # em dash for unavailable
-        
+
         # Check string representation for invalid values with enhanced pattern matching
         temp_str = str(temp_value).strip()
         temp_str_lower = temp_str.lower()
-        
+
         # Enhanced pattern matching for N/A variations with stricter checking
-        if (not temp_str or 
+        if (not temp_str or
             temp_str_lower in {v.lower() if isinstance(v, str) else v for v in invalid_values} or
-            'n/a' in temp_str_lower or 
+            'n/a' in temp_str_lower or
             'n.a' in temp_str_lower or
             temp_str_lower.startswith('na') or
             'unavailable' in temp_str_lower or
@@ -947,10 +972,10 @@ class wxmeow:
             temp_str_lower.startswith('err') or
             temp_str_lower.startswith('no') or
             len(temp_str.strip()) == 0):
-            
+
             logger.debug(f"Filtered invalid temperature value (enhanced pattern match): {temp_value!r} -> '{temp_str}'")
             return "—"
-        
+
         # Try to convert to numeric value
         try:
             # Handle both string and numeric inputs
@@ -964,24 +989,24 @@ class wxmeow:
                 # Strip whitespace and convert
                 if not temp_str:  # Empty after stripping
                     return "—"
-                    
+
                 # Remove any trailing units (°F, °C, F, C) before conversion
                 clean_str = temp_str.rstrip('°FfCc ')
                 if not clean_str:
                     return "—"
-                    
+
                 temp_num = int(float(clean_str))  # Handle decimal inputs
-                
+
                 # Validate reasonable temperature range
                 if not (-200 <= temp_num <= 200):
                     logger.debug(f"Converted temperature out of reasonable range: {temp_num}")
                     return "—"
-            
+
             # Final validation - ensure we have a valid integer
             if not isinstance(temp_num, int):
                 logger.debug(f"Temperature not an integer after conversion: {temp_num}")
                 return "—"
-            
+
             return f"{temp_num}°F"
         except (ValueError, TypeError, AttributeError, OverflowError) as e:
             logger.debug(f"Error converting temperature value '{temp_value}': {e}")
@@ -994,7 +1019,7 @@ class wxmeow:
         Enhanced for Canadian weather data edge cases.
         """
         invalid_values = {
-            None, "", "N/A", "n/a", "NA", "na", "??", "None", "NONE", 
+            None, "", "N/A", "n/a", "NA", "na", "??", "None", "NONE",
             "null", "NULL", "undefined", "UNDEFINED", "NaN", "nan",
             "-", "--", "---", "...", "TBD", "tbd", "Unknown", "unknown",
             "UNKNOWN", "nil", "NIL", "void", "VOID", "missing", "MISSING",
@@ -1006,20 +1031,20 @@ class wxmeow:
             "n.a.", "N.A.", "not available", "NOT AVAILABLE", "no data",
             "NO DATA", "data unavailable", "DATA UNAVAILABLE"
         }
-        
+
         # Check if value is in invalid set
         if temp_value in invalid_values:
             logger.debug(f"_safe_temp_string filtered invalid value (direct match): {temp_value!r}")
             return ""
-        
+
         # Enhanced string representation checking for invalid values
         temp_str = str(temp_value).strip()
         temp_str_lower = temp_str.lower()
-        
+
         # Enhanced pattern matching for N/A variations and error conditions with stricter checking
-        if (not temp_str or 
+        if (not temp_str or
             temp_str_lower in {v.lower() if isinstance(v, str) else v for v in invalid_values} or
-            'n/a' in temp_str_lower or 
+            'n/a' in temp_str_lower or
             'n.a' in temp_str_lower or
             temp_str_lower.startswith('na') or
             'unavailable' in temp_str_lower or
@@ -1032,10 +1057,10 @@ class wxmeow:
             temp_str_lower.startswith('err') or
             temp_str_lower.startswith('no') or
             len(temp_str.strip()) == 0):
-            
+
             logger.debug(f"_safe_temp_string filtered invalid value (enhanced pattern match): {temp_value!r} -> '{temp_str}'")
             return ""
-        
+
         try:
             if isinstance(temp_value, (int, float)):
                 # Check for special float values and reasonable temperature range
@@ -1048,22 +1073,22 @@ class wxmeow:
                 clean_str = temp_str.rstrip('°FfCc ')
                 if not clean_str:
                     return ""
-                    
+
                 temp_num = float(clean_str)
-                
+
                 # Validate range
                 if not (-200 <= temp_num <= 200):
                     logger.debug(f"String temperature out of reasonable range: {temp_num}")
                     return ""
-                    
+
                 # Ensure we return a valid integer string
                 result = str(int(temp_num))
-                
+
                 # Final validation - make sure result doesn't contain invalid patterns
                 if any(invalid in result.lower() for invalid in ['n/a', 'na', 'null', 'undefined', 'error']):
                     logger.debug(f"Invalid pattern found in final result: {result}")
                     return ""
-                    
+
                 return result
         except (ValueError, TypeError, AttributeError, OverflowError) as e:
             logger.debug(f"Error processing temperature value '{temp_value}': {e}")
@@ -1075,11 +1100,11 @@ class wxmeow:
         """
         max_retries = 2  # Try up to 2 times (initial + 1 retry)
         retry_count = 0
-        
+
         # Check location type for appropriate weather source
         is_canadian = is_canadian_location(self.location)
         is_european = is_european_location(self.location)
-        
+
         while retry_count <= max_retries:
             try:
                 if is_canadian:
@@ -1091,7 +1116,7 @@ class wxmeow:
                     except (LocationError, ApiError) as canada_error:
                         logger.info(f"Canadian weather service failed for '{self.location}': {canada_error}")
                         # Only try NOAA as fallback for border cities
-                        coords = get_coordinates(self.location) 
+                        coords = get_coordinates(self.location)
                         if coords and 42.0 <= coords[0] <= 50.0:  # Near US border
                             logger.info(f"Trying NOAA as fallback for Canadian border location '{self.location}'")
                             self.meow = noaa(self.location, include_hourly=self.include_hourly)
@@ -1125,7 +1150,7 @@ class wxmeow:
                 else:
                     # For US and other locations, use NOAA
                     self.meow = noaa(self.location, include_hourly=self.include_hourly)
-                
+
                 # If we get here, we succeeded - process the data
                 self._process_hourly_data()
                 # Save the fresh data to cache
@@ -1242,7 +1267,7 @@ class wxmeow:
                         # Convert time to a standard format
                         start_time = period.get("startTime", "")
                         temp = period.get("temperature")
-                        
+
                         # Validate and clean temperature value with enhanced filtering
                         validated_temp = self._safe_temp_string(temp)
                         if validated_temp and validated_temp.strip():
@@ -1280,10 +1305,10 @@ class wxmeow:
                         continue
 
                 self.meowhourly = hourly_data
-                
+
                 # Additional safety filter to ensure no N/A values in JSON serialization
                 self._clean_hourly_data()
-                
+
                 logger.info(f"Processed {len(hourly_data)} hourly forecast periods")
             else:
                 logger.warning("Hourly forecast data structure is not as expected")
@@ -1308,19 +1333,19 @@ class wxmeow:
             'timeout', 'TIMEOUT', '--', '---', 'n.a.', 'N.A.',
             'no data', 'NO DATA', 'not available', 'NOT AVAILABLE'
         }
-        
+
         validated_items = []
-        
+
         for item in forecast_items:
             validated_item = item.copy()
-            
+
             # Validate temperature values
             for temp_key in ['high', 'low']:
                 temp_value = validated_item.get(temp_key)
-                
+
                 if temp_value is None:
                     continue  # None is acceptable
-                
+
                 # Check for invalid string patterns
                 if isinstance(temp_value, str):
                     temp_str = str(temp_value).strip()
@@ -1331,7 +1356,7 @@ class wxmeow:
                         logger.warning(f"Removing invalid temperature value in forecast JSON: '{temp_value}'")
                         validated_item[temp_key] = None
                         continue
-                    
+
                     # Try to convert to integer
                     try:
                         temp_num = int(float(temp_str))
@@ -1343,7 +1368,7 @@ class wxmeow:
                     except (ValueError, TypeError):
                         logger.warning(f"Could not convert temperature in forecast JSON: '{temp_str}'")
                         validated_item[temp_key] = None
-                
+
                 # Validate numeric values
                 elif isinstance(temp_value, (int, float)):
                     if not (-200 <= temp_value <= 200):
@@ -1355,7 +1380,7 @@ class wxmeow:
                     # Unknown type, set to None
                     logger.warning(f"Unknown temperature type in forecast JSON: {type(temp_value)}")
                     validated_item[temp_key] = None
-            
+
             # Validate condition string
             condition = validated_item.get('condition', '')
             if isinstance(condition, str):
@@ -1367,7 +1392,7 @@ class wxmeow:
                     validated_item['condition'] = condition_str
             else:
                 validated_item['condition'] = "Unknown"
-            
+
             # Ensure precipitation is valid
             precip = validated_item.get('precip')
             if precip is None or (isinstance(precip, str) and precip.strip() in invalid_patterns):
@@ -1376,9 +1401,9 @@ class wxmeow:
                 validated_item['precip'] = precip
             else:
                 validated_item['precip'] = 0
-            
+
             validated_items.append(validated_item)
-        
+
         logger.debug(f"Validated {len(validated_items)} forecast items for N/A protection")
         return validated_items
 
@@ -1453,14 +1478,14 @@ class wxmeow:
         try:
             from datetime import datetime, timedelta
             forecast_items = []
-            
+
             # Use the shorter of the available lists to avoid index errors
             forecast_count = min(len(self.dayname), len(self.meowfc), len(self.meowtp), len(self.meowlt))
-            
+
             for i in range(forecast_count):
                 # Convert generic day names to actual dates
                 raw_date = self.dayname[i] if i < len(self.dayname) else f"day {i}"
-                
+
                 if raw_date.lower() == "today":
                     date = datetime.now().strftime("%Y-%m-%d")
                 elif raw_date.lower() == "tomorrow":
@@ -1474,10 +1499,10 @@ class wxmeow:
                 else:
                     # Use as-is for proper date strings, or generate date for index
                     date = raw_date if '-' in raw_date else (datetime.now() + timedelta(days=i)).strftime("%Y-%m-%d")
-                
+
                 # Get the condition from forecast data first, fall back to detail HTML
                 condition = ""
-                
+
                 # Try to get condition from original forecast periods if available
                 if hasattr(self.meow, 'jforecast') and self.meow.jforecast:
                     try:
@@ -1495,7 +1520,7 @@ class wxmeow:
                                         condition = parts[-1] if len(parts) > 1 else condition
                     except (KeyError, TypeError, IndexError):
                         pass  # Fall back to detail extraction
-                
+
                 # If we didn't get a good condition from forecast periods, try detail HTML
                 if condition == "" and i < len(self.detail) and self.detail[i]:
                     # Extract condition description from detail HTML
@@ -1511,11 +1536,11 @@ class wxmeow:
                             condition = text_content
                         else:
                             condition = "Unknown"
-                
+
                 # Get temperatures - handle both string and numeric values
                 high_temp = None
                 low_temp = None
-                
+
                 if i < len(self.meowtp) and self.meowtp[i]:
                     try:
                         # Use safe string validation - no need to check again since data is already filtered
@@ -1523,7 +1548,7 @@ class wxmeow:
                             high_temp = int(self.meowtp[i])
                     except (ValueError, TypeError):
                         high_temp = None
-                        
+
                 if i < len(self.meowlt) and self.meowlt[i]:
                     try:
                         # Use safe string validation - no need to check again since data is already filtered
@@ -1531,14 +1556,14 @@ class wxmeow:
                             low_temp = int(self.meowlt[i])
                     except (ValueError, TypeError):
                         low_temp = None
-                
+
                 # Fix temperature inversion issue - ensure high >= low
                 if high_temp is not None and low_temp is not None:
                     if high_temp < low_temp:
                         # Swap them
                         high_temp, low_temp = low_temp, high_temp
                         logger.debug(f"Fixed temperature inversion for day {i}: swapped high/low temperatures")
-                
+
                 forecast_item = {
                     "date": date,
                     "condition": condition,
@@ -1546,13 +1571,13 @@ class wxmeow:
                     "low": low_temp,
                     "precip": 0  # No precipitation data available - use 0 instead of None
                 }
-                
+
                 forecast_items.append(forecast_item)
-            
+
             # Final validation pass to ensure absolutely no N/A values in forecast JSON
             self.meowforecast = self._validate_forecast_json(forecast_items)
             logger.info(f"Created forecast JSON with {len(self.meowforecast)} items")
-            
+
         except Exception as e:
             logger.error(f"Error creating forecast JSON: {str(e)}")
             logger.debug(traceback.format_exc())
@@ -1901,11 +1926,11 @@ table {
                   const date = new Date(item.time);
                   const hour = date.getHours();
                   labels.push(hour === 0 ? '12 AM' : hour === 12 ? '12 PM' : hour > 12 ? (hour-12) + ' PM' : hour + ' AM');
-                  
+
                   // Safely extract temperature with validation
                   const tempValue = item.temperature || item.temp;
                   let validTemp = null;
-                  
+
                   if (typeof tempValue === 'number' && tempValue >= -200 && tempValue <= 200) {
                       validTemp = tempValue;
                   } else if (typeof tempValue === 'string' && tempValue.trim() !== '') {
@@ -1914,11 +1939,11 @@ table {
                           validTemp = parsed;
                       }
                   }
-                  
+
                   temperatures.push(validTemp);
                   precipProbs.push(item.precip || 0);
               });
-              
+
               // Filter out null temperatures and corresponding labels
               const validDataPoints = [];
               for (let i = 0; i < temperatures.length; i++) {
@@ -1930,13 +1955,13 @@ table {
                       });
                   }
               }
-              
+
               // If no valid temperatures, show error message
               if (validDataPoints.length === 0) {
                   chartContainer.innerHTML = "<p style='text-align: center; color: #666; font-style: italic;'>Temperature data not available for this day</p>";
                   return;
               }
-              
+
               // Extract clean arrays
               const cleanLabels = validDataPoints.map(dp => dp.label);
               const cleanTemperatures = validDataPoints.map(dp => dp.temp);
@@ -2084,11 +2109,11 @@ table {
     def _create_enhanced_european_fallback(self, location: str, coords: tuple) -> object:
         """
         Create enhanced fallback weather data for European locations.
-        
+
         Args:
             location: The European location string
             coords: Tuple of (lat, lon) coordinates
-            
+
         Returns:
             A mock weather object with basic location info and fallback data
         """
@@ -2101,7 +2126,7 @@ table {
                 self.jconditions = None
                 self.jforecast = self._create_basic_forecast()
                 self.jhourly = None
-                
+
             def _create_basic_forecast(self):
                 """Create a basic forecast structure"""
                 return {
@@ -2116,7 +2141,7 @@ table {
                         ]
                     }
                 }
-        
+
         return EuropeanFallback(location, coords)
 
     def _clean_hourly_data(self):
@@ -2126,32 +2151,32 @@ table {
         """
         if not self.meowhourly:
             return
-            
+
         cleaned_data = []
         invalid_patterns = {
-            'N/A', 'n/a', 'NA', 'na', 'null', 'NULL', 'undefined', 'UNDEFINED', 
+            'N/A', 'n/a', 'NA', 'na', 'null', 'NULL', 'undefined', 'UNDEFINED',
             'NaN', 'nan', 'None', 'NONE', '??', '???', 'error', 'ERROR',
             'fail', 'FAIL', 'invalid', 'INVALID', 'unavailable', 'UNAVAILABLE',
             'timeout', 'TIMEOUT', '--', '---', 'n.a.', 'N.A.'
         }
-        
+
         for item in self.meowhourly:
             cleaned_item = item.copy()
-            
+
             # Check and clean temperature fields
             for temp_field in ['temp', 'temperature']:
                 if temp_field in cleaned_item:
                     temp_value = cleaned_item[temp_field]
-                    
+
                     # Handle None values
                     if temp_value is None:
                         continue  # None is acceptable
-                    
+
                     # Check string values for invalid patterns with more comprehensive checking
                     if isinstance(temp_value, str):
                         temp_str = temp_value.strip()
                         # More comprehensive invalid pattern detection
-                        if (temp_str in invalid_patterns or 
+                        if (temp_str in invalid_patterns or
                             not temp_str or
                             temp_str.lower().startswith('n') and ('a' in temp_str.lower() or '/' in temp_str) or
                             any(invalid.lower() in temp_str.lower() for invalid in invalid_patterns if isinstance(invalid, str)) or
@@ -2159,7 +2184,7 @@ table {
                             logger.debug(f"Cleaning invalid temperature value: '{temp_value}'")
                             cleaned_item[temp_field] = None
                             continue
-                        
+
                         # Try to convert to number and validate range
                         try:
                             temp_num = float(temp_str)
@@ -2171,7 +2196,7 @@ table {
                         except (ValueError, TypeError):
                             logger.debug(f"Could not convert temperature: '{temp_str}'")
                             cleaned_item[temp_field] = None
-                    
+
                     # Validate numeric values
                     elif isinstance(temp_value, (int, float)):
                         if not (-200 <= temp_value <= 200):
@@ -2179,14 +2204,14 @@ table {
                             cleaned_item[temp_field] = None
                         else:
                             cleaned_item[temp_field] = int(temp_value)
-            
+
             # Clean other string fields
             for field in ['condition', 'windSpeed', 'windDir']:
                 if field in cleaned_item and isinstance(cleaned_item[field], str):
                     value = cleaned_item[field].strip()
                     if value in invalid_patterns:
                         cleaned_item[field] = ""
-            
+
             # Ensure precipitation is numeric
             if 'precip' in cleaned_item:
                 try:
@@ -2201,9 +2226,9 @@ table {
                         cleaned_item['precip'] = max(0, min(100, float(cleaned_item['precip'])))
                 except (ValueError, TypeError):
                     cleaned_item['precip'] = 0
-            
+
             cleaned_data.append(cleaned_item)
-        
+
         self.meowhourly = cleaned_data
         logger.debug(f"Cleaned hourly data: {len(cleaned_data)} items processed")
 
