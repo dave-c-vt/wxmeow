@@ -252,6 +252,7 @@ class wxmeow:
 
         # Build the chart containers
         futuretext = '<div style="margin: 20px auto; max-width: 800px;">'
+        futuretext += '<div style="text-align:right;margin-bottom:2px;"><span id="temp-unit-toggle" onclick="toggleTempUnit()" style="font-family:monospace;font-size:10px;color:#bbb;cursor:pointer;user-select:none;">°C</span></div>'
         for i in range(num_days):
             chart_display = "block" if i == 0 else "none"
             futuretext += f'<div id="hourly-temperature-chart-{i}" class="hourly-chart" style="display:{chart_display}; width:100%; max-width:800px; margin:16px auto; min-height:200px;"></div>'
@@ -877,6 +878,7 @@ class wxmeow:
 
         # Build the chart containers
         futuretext = '<div style="margin: 20px auto; max-width: 800px;">'
+        futuretext += '<div style="text-align:right;margin-bottom:2px;"><span id="temp-unit-toggle" onclick="toggleTempUnit()" style="font-family:monospace;font-size:10px;color:#bbb;cursor:pointer;user-select:none;">°C</span></div>'
         for i in range(5):
             chart_display = "block" if i == 0 else "none"
             futuretext += f'<div id="hourly-temperature-chart-{i}" class="hourly-chart" style="display:{chart_display}; width:100%; max-width:800px; margin:16px auto; min-height:200px;"></div>'
@@ -1402,6 +1404,8 @@ class wxmeow:
                 "Minor": "wx-alert-minor",
             }
 
+            import html as html_lib
+            alert_idx = 0
             html = '<div class="wx-alerts">\n'
             for feature in features:
                 props = feature.get("properties", {})
@@ -1409,8 +1413,8 @@ class wxmeow:
                 severity = props.get("severity", "Unknown")
                 area = props.get("areaDesc", "").lower()
                 expires = props.get("expires", "")
-                headline = props.get("headline", "").lower()
-                web = props.get("web", "")
+                description = props.get("description", "")
+                instruction = props.get("instruction", "")
 
                 # Format expires time as readable string
                 expires_str = ""
@@ -1418,7 +1422,6 @@ class wxmeow:
                     try:
                         from datetime import datetime
                         import re
-                        # Strip timezone offset for parsing
                         dt_str = re.sub(r'[+-]\d{2}:\d{2}$', '', expires)
                         dt = datetime.fromisoformat(dt_str)
                         expires_str = f"until {dt.strftime('%-I:%M %p').lower()} on {dt.strftime('%a %-m/%-d')}"
@@ -1426,17 +1429,41 @@ class wxmeow:
                         expires_str = ""
 
                 css_class = severity_class.get(severity, "")
-                link = f' | <a href="{web}">details</a>' if web else ""
+
+                # Build inline detail text
+                detail_parts = []
+                if description:
+                    detail_parts.append(html_lib.escape(description))
+                if instruction:
+                    detail_parts.append(html_lib.escape(instruction))
+                detail_text = "\n\n".join(detail_parts).replace("\n", "<br>")
+
+                detail_id = f"wx-alert-detail-{alert_idx}"
+                if detail_text:
+                    toggle = (
+                        f' | <a href="#" onclick="'
+                        f'var d=document.getElementById(\'{detail_id}\');'
+                        f'var t=document.getElementById(\'{detail_id}-t\');'
+                        f'if(d.style.display===\'none\'){{d.style.display=\'block\';t.textContent=\'hide\';}}else{{d.style.display=\'none\';t.textContent=\'details\';}}return false;">'
+                        f'<span id="{detail_id}-t">details</span></a>'
+                    )
+                    detail_div = f'<div id="{detail_id}" style="display:none;margin-top:6px;font-size:0.85em;white-space:pre-wrap;max-height:300px;overflow-y:auto;">{detail_text}</div>'
+                else:
+                    toggle = ""
+                    detail_div = ""
 
                 html += f'<div class="wx-alert {css_class}">\n'
                 html += f'  <strong>{event}</strong>\n'
                 if area:
                     html += f'  <span class="wx-alert-area">{area}</span>\n'
-                if expires_str or link:
-                    html += f'  <p class="wx-alert-expires">{expires_str}{link}</p>\n'
+                if expires_str or toggle:
+                    html += f'  <p class="wx-alert-expires">{expires_str}{toggle}</p>\n'
+                if detail_div:
+                    html += f'  {detail_div}\n'
                 html += '</div>\n'
 
                 self.alerts.append({"event": event, "severity": severity, "area": area})
+                alert_idx += 1
 
             html += '</div>\n'
             self.meow_alerts = html
@@ -1837,6 +1864,48 @@ table {
           // Global variables
           var lastSelectedDay = 0;
           let charts = {};
+          var isCelsius = false;
+
+          function toDisplayTemp(f) {
+              if (f === null || f === undefined) return null;
+              return isCelsius ? Math.round((f - 32) * 5 / 9 * 10) / 10 : f;
+          }
+          function unitLabel() { return isCelsius ? '°C' : '°F'; }
+          function freezingPoint() { return isCelsius ? 0 : 32; }
+
+          // Custom plugin: faint dashed line at freezing temperature
+          const freezingLinePlugin = {
+              id: 'freezingLine',
+              afterDraw(chart) {
+                  const yScale = chart.scales.y;
+                  if (!yScale) return;
+                  const fp = freezingPoint();
+                  if (fp < yScale.min || fp > yScale.max) return;
+                  const y = yScale.getPixelForValue(fp);
+                  const ctx = chart.ctx;
+                  ctx.save();
+                  ctx.beginPath();
+                  ctx.moveTo(chart.chartArea.left, y);
+                  ctx.lineTo(chart.chartArea.right, y);
+                  ctx.strokeStyle = 'rgba(100, 160, 255, 0.3)';
+                  ctx.lineWidth = 1;
+                  ctx.setLineDash([3, 6]);
+                  ctx.stroke();
+                  ctx.restore();
+              }
+          };
+
+          function toggleTempUnit() {
+              isCelsius = !isCelsius;
+              const btn = document.getElementById('temp-unit-toggle');
+              if (btn) btn.textContent = isCelsius ? '°F' : '°C';
+              Object.keys(charts).forEach(function(k) {
+                  if (charts[k]) { charts[k].destroy(); charts[k] = null; }
+                  const c = document.getElementById('hourly-temperature-chart-' + k);
+                  if (c) c.innerHTML = '';
+              });
+              createTemperatureChart(lastSelectedDay);
+          }
 
           function isDarkMode() {
               return document.documentElement.getAttribute("data-theme") === "dark";
@@ -1939,7 +2008,7 @@ table {
               
               // Extract clean arrays
               const cleanLabels = validDataPoints.map(dp => dp.label);
-              const cleanTemperatures = validDataPoints.map(dp => dp.temp);
+              const cleanTemperatures = validDataPoints.map(dp => toDisplayTemp(dp.temp));
               const cleanPrecipProbs = validDataPoints.map(dp => dp.precip);
 
               // Create canvas
@@ -1950,6 +2019,7 @@ table {
 
               // Create chart (lo-fi: monochrome, no fill, straight lines)
               charts[dayIndex] = new Chart(ctx, {
+                  plugins: [freezingLinePlugin],
                   type: 'line',
                   data: {
                       labels: cleanLabels,
@@ -1985,7 +2055,7 @@ table {
                               intersect: false,
                               callbacks: {
                                   label: function(context) {
-                                      if (context.datasetIndex === 0) return context.parsed.y + '°f';
+                                      if (context.datasetIndex === 0) return context.parsed.y + unitLabel();
                                       return context.parsed.y + '% precip';
                                   }
                               }
@@ -1999,7 +2069,7 @@ table {
                               ticks: {
                                   font: { family: 'monospace', size: 10 },
                                   color: '#333',
-                                  callback: function(val) { return val + '°'; }
+                                  callback: function(val) { return val + unitLabel(); }
                               },
                               border: { display: false }
                           },

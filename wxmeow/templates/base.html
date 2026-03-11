@@ -38,6 +38,41 @@
          {{ wxmeow.js | safe }}
      {% endif %}
 
+     <!-- Drag-to-scroll for forecast container on desktop -->
+     <script>
+     document.addEventListener('DOMContentLoaded', function() {
+         var el = document.getElementById('forecast-container');
+         if (!el) return;
+         var isDown = false, didDrag = false, startX, scrollLeft;
+         el.addEventListener('mousedown', function(e) {
+             isDown = true;
+             didDrag = false;
+             el.style.cursor = 'grabbing';
+             startX = e.pageX - el.offsetLeft;
+             scrollLeft = el.scrollLeft;
+             e.preventDefault();
+         });
+         document.addEventListener('mouseup', function() {
+             isDown = false;
+             el.style.cursor = 'grab';
+         });
+         document.addEventListener('mousemove', function(e) {
+             if (!isDown) return;
+             var x = e.pageX - el.offsetLeft;
+             var walk = x - startX;
+             if (Math.abs(walk) > 5) didDrag = true;
+             el.scrollLeft = scrollLeft - walk;
+         });
+         el.addEventListener('click', function(e) {
+             if (didDrag) {
+                 e.stopPropagation();
+                 didDrag = false;
+             }
+         }, true);
+         el.style.cursor = 'grab';
+     });
+     </script>
+
      <!-- Enhanced client-side N/A detection and cleanup for Canadian forecasts -->
      <script>
      document.addEventListener('DOMContentLoaded', function() {

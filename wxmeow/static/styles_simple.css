@@ -5,8 +5,10 @@
     }
     }*/
 
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Mono:wdth,wght@62.5..100,100..900&display=swap');
+
 h1, h2, h3, body {
-    font-family: sans-serif;
+    font-family: 'Noto Sans Mono', monospace;
 }
 
 a {

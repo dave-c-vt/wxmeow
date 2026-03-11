@@ -8,6 +8,36 @@
 document.addEventListener("DOMContentLoaded", function () {
   let charts = {}; // Store chart instances for each day
   let hourlyData = null; // Store the hourly forecast data
+  let isCelsius = false; // Unit toggle state
+
+  function toDisplayTemp(f) {
+    if (f === null || f === undefined) return null;
+    return isCelsius ? Math.round((f - 32) * 5 / 9 * 10) / 10 : f;
+  }
+  function freezingPoint() { return isCelsius ? 0 : 32; }
+  function unitLabel() { return isCelsius ? "°C" : "°F"; }
+
+  // Custom plugin: faint dashed horizontal line at freezing temperature
+  const freezingLinePlugin = {
+    id: "freezingLine",
+    afterDraw(chart) {
+      const yScale = chart.scales.temperature;
+      if (!yScale) return;
+      const fp = freezingPoint();
+      if (fp < yScale.min || fp > yScale.max) return;
+      const y = yScale.getPixelForValue(fp);
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(chart.chartArea.left, y);
+      ctx.lineTo(chart.chartArea.right, y);
+      ctx.strokeStyle = "rgba(100, 160, 255, 0.3)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 6]);
+      ctx.stroke();
+      ctx.restore();
+    },
+  };
 
   // Initialize hourly data from window object if available
   if (window.hourlyData) {
@@ -235,10 +265,7 @@ document.addEventListener("DOMContentLoaded", function () {
       );
       return {
         x: hour, // Use hour as x-axis value
-        y:
-          item.temperature !== null && item.temperature !== undefined
-            ? item.temperature
-            : null,
+        y: toDisplayTemp(item.temperature),
         time: item.time,
         condition: item.condition || "",
         precipitation: item.precipitation || 0,
@@ -324,11 +351,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Create the chart
     currentChart = new Chart(ctx, {
+      plugins: [freezingLinePlugin],
       type: "line",
       data: {
         datasets: [
           {
-            label: "Temperature (°F)",
+            label: `Temperature (${unitLabel()})`,
             data: chartData,
             yAxisID: 'temperature',
             spanGaps: true,
@@ -433,7 +461,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const value = context.parsed.y;
                 
                 if (datasetLabel.includes('Temperature')) {
-                  return `${datasetLabel}: ${value}°F`;
+                  return `${datasetLabel}: ${value}${unitLabel()}`;
                 } else if (datasetLabel.includes('Precipitation')) {
                   return `${datasetLabel}: ${value}%`;
                 }
@@ -505,7 +533,7 @@ document.addEventListener("DOMContentLoaded", function () {
             position: 'left',
             title: {
               display: true,
-              text: "Temperature (°F)",
+              text: `Temperature (${unitLabel()})`,
               font: {
                 family: "monospace",
                 size: 11,
@@ -1158,6 +1186,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     return null;
   }
+
 
   // Initialize everything when the document is ready
   $(document).ready(function () {
